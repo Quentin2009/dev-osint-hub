@@ -1,4 +1,5 @@
 ---
+import '../styles/global.css';
 import toolsData from '../data/tools.json';
 
 // Extraire la liste unique des catégories
@@ -9,82 +10,129 @@ const categories = [...new Set(toolsData.map(item => item.category))].sort();
   <head>
     <meta charset="utf-8" />
     <title>Dev & OSINT Vault</title>
-    <meta name="viewport" content="width=device-width" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   </head>
-  <body class="bg-slate-950 text-slate-100 min-h-screen p-6 font-sans">
+  <body class="bg-slate-950 text-slate-100 min-h-screen font-['Inter',sans-serif] antialiased">
     
-    <header class="max-w-6xl mx-auto mb-10 text-center">
-      <h1 class="text-4xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-emerald-400">
-        Dev & OSINT Vault
-      </h1>
-      <p class="text-slate-400 mt-2">Toutes les ressources gratuites pour devs et chercheurs OSINT, centralisées.</p>
+    <!-- Background Effect -->
+    <div class="fixed inset-0 bg-[radial-gradient(ellipse_80%_80%_at_50%_-20%,rgba(120,119,198,0.15),rgba(255,255,255,0))] pointer-events-none"></div>
+
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 relative z-10">
       
-      <!-- Barre de recherche -->
-      <div class="mt-6 max-w-xl mx-auto">
-        <input 
-          type="text" 
-          id="search-input" 
-          placeholder="Rechercher un outil (ex: Shodan, Docker, Mail...)" 
-          class="w-full p-4 rounded-xl bg-slate-900 border border-slate-800 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-lg"
-        />
-      </div>
-    </header>
+      <!-- Header -->
+      <header class="text-center max-w-3xl mx-auto mb-12">
+        <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-500/10 border border-blue-500/20 text-blue-400 text-xs font-semibold mb-4">
+          <span class="flex h-2 w-2 rounded-full bg-blue-400 animate-pulse"></span>
+          Base de données OSINT & Dev à jour
+        </div>
+        <h1 class="text-4xl sm:text-6xl font-extrabold tracking-tight text-white mb-4">
+          Dev & OSINT <span class="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 via-teal-400 to-emerald-400">Vault</span>
+        </h1>
+        <p class="text-slate-400 text-lg">
+          Accédez instantanément à toutes les ressources et outils gratuits pour développeurs et chercheurs OSINT.
+        </p>
 
-    <main class="max-w-6xl mx-auto">
-      <div id="tools-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {toolsData.map((tool) => (
-          <div class="tool-card p-5 rounded-xl bg-slate-900/60 border border-slate-800 hover:border-slate-700 transition duration-200 flex flex-col justify-between" data-title={tool.title} data-desc={tool.description} data-cat={tool.category}>
-            <div>
-              <div class="flex items-center justify-between gap-2 mb-2">
-                <span class="text-xs px-2 py-1 rounded bg-blue-950 text-blue-300 font-semibold border border-blue-800/50">
-                  {tool.category}
-                </span>
-                <span class="text-[10px] text-slate-500 uppercase tracking-wider">{tool.source}</span>
-              </div>
-              <h3 class="text-lg font-bold text-white mb-1">{tool.title}</h3>
-              <p class="text-sm text-slate-400 line-clamp-3">{tool.description || "Pas de description disponible."}</p>
-            </div>
-            <a 
-              href={tool.url} 
-              target="_blank" 
-              rel="noopener noreferrer" 
-              class="mt-4 inline-flex items-center justify-center w-full py-2 px-4 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-sm font-medium transition"
-            >
-              Visiter ↗
-            </a>
+        <!-- Barre de recherche -->
+        <div class="mt-8 relative max-w-2xl mx-auto">
+          <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-slate-500">
+            🔍
           </div>
-        ))}
-      </div>
-    </main>
+          <input 
+            type="text" 
+            id="search-input" 
+            placeholder="Rechercher par nom, mot-clé, outil (ex: Shodan, Docker, Mail...)" 
+            class="w-full pl-11 pr-4 py-4 rounded-2xl bg-slate-900/80 border border-slate-800 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 transition shadow-2xl backdrop-blur-xl"
+          />
+        </div>
+      </header>
 
-    <!-- Script client pour la recherche instantanée -->
+      <!-- Compteur et Grille -->
+      <div class="flex justify-between items-center mb-6 px-2">
+        <span id="counter" class="text-sm font-medium text-slate-400">
+          Affichage de <strong class="text-white">{toolsData.length}</strong> ressources
+        </span>
+      </div>
+
+      <main>
+        <div id="tools-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {toolsData.map((tool) => (
+            <div 
+              class="tool-card group relative bg-slate-900/40 border border-slate-800/80 hover:border-slate-700/80 rounded-2xl p-6 transition-all duration-300 hover:-translate-y-1 hover:shadow-xl hover:shadow-blue-500/5 flex flex-col justify-between backdrop-blur-sm"
+              data-title={tool.title} 
+              data-desc={tool.description} 
+              data-cat={tool.category}
+            >
+              <div>
+                <div class="flex items-center justify-between gap-2 mb-3">
+                  <span class="text-[11px] font-semibold px-2.5 py-1 rounded-md bg-slate-800 text-slate-300 border border-slate-700/50 truncate max-w-[200px]">
+                    {tool.category}
+                  </span>
+                  <span class={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded ${tool.source === 'free_for_dev' ? 'bg-emerald-950 text-emerald-400 border border-emerald-800/50' : 'bg-purple-950 text-purple-400 border border-purple-800/50'}`}>
+                    {tool.source === 'free_for_dev' ? 'Free-Dev' : 'OSINT'}
+                  </span>
+                </div>
+
+                <h3 class="text-xl font-bold text-white group-hover:text-blue-400 transition-colors mb-2">
+                  {tool.title}
+                </h3>
+                
+                <p class="text-slate-400 text-sm leading-relaxed line-clamp-3 mb-4">
+                  {tool.description || "Aucune description fournie pour cette ressource."}
+                </p>
+              </div>
+
+              <a 
+                href={tool.url} 
+                target="_blank" 
+                rel="noopener noreferrer" 
+                class="inline-flex items-center justify-center gap-2 w-full py-2.5 px-4 rounded-xl bg-slate-800/80 hover:bg-blue-600 text-slate-200 hover:text-white text-sm font-semibold transition-all duration-200 border border-slate-700/50 hover:border-blue-500"
+              >
+                Visiter le site
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path></svg>
+              </a>
+            </div>
+          ))}
+        </div>
+      </main>
+
+    </div>
+
+    <!-- Script Fuzzy Search (Fuse.js) -->
     <script>
       import Fuse from 'fuse.js';
 
       const cards = Array.from(document.querySelectorAll('.tool-card'));
-      const input = document.getElementById('search-input');
+      const input = document.getElementById('search-input') as HTMLInputElement;
+      const counter = document.getElementById('counter');
 
       const tools = cards.map((card, index) => ({
         index,
-        title: card.getAttribute('data-title'),
-        desc: card.getAttribute('data-desc'),
-        cat: card.getAttribute('data-cat')
+        title: card.getAttribute('data-title') || '',
+        desc: card.getAttribute('data-desc') || '',
+        cat: card.getAttribute('data-cat') || ''
       }));
 
       const fuse = new Fuse(tools, {
         keys: ['title', 'desc', 'cat'],
-        threshold: 0.3
+        threshold: 0.35,
+        ignoreLocation: true
       });
 
       input?.addEventListener('input', (e) => {
-        const query = e.target.value.trim();
+        const target = e.target as HTMLInputElement;
+        const query = target.value.trim();
 
         if (!query) {
           cards.forEach(card => card.classList.remove('hidden'));
+          if (counter) counter.innerHTML = `Affichage de <strong class="text-white">${cards.length}</strong> ressources`;
           return;
         }
 
         const results = fuse.search(query).map(r => r.item.index);
+        
         cards.forEach((card, idx) => {
           if (results.includes(idx)) {
             card.classList.remove('hidden');
@@ -92,6 +140,8 @@ const categories = [...new Set(toolsData.map(item => item.category))].sort();
             card.classList.add('hidden');
           }
         });
+
+        if (counter) counter.innerHTML = `Trouvé : <strong class="text-white">${results.length}</strong> ressource(s)`;
       });
     </script>
   </body>
