@@ -2,8 +2,9 @@
 import '../styles/global.css';
 import toolsData from '../data/tools.json';
 
-// Nettoyage et extraction des catégories uniques
-const rawCategories = [...new Set(toolsData.map(item => item.category))].filter(Boolean).sort();
+// Séparation des catégories par source
+const freeDevCategories = [...new Set(toolsData.filter(i => i.source === 'free_for_dev').map(i => i.category))].sort();
+const osintCategories = [...new Set(toolsData.filter(i => i.source === 'awesome_osint').map(i => i.category))].sort();
 ---
 
 <html lang="fr" class="dark">
@@ -15,77 +16,125 @@ const rawCategories = [...new Set(toolsData.map(item => item.category))].filter(
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   </head>
-  <body class="bg-slate-950 text-slate-100 min-h-screen font-['Inter',sans-serif] antialiased selection:bg-blue-500 selection:text-white">
+  <body class="bg-slate-950 text-slate-100 min-h-screen font-['Inter',sans-serif] antialiased pt-20 selection:bg-blue-500 selection:text-white">
     
-    <!-- Background Decorator -->
+    <!-- Background Gradient -->
     <div class="fixed inset-0 bg-[radial-gradient(ellipse_80%_80%_at_50%_-20%,rgba(59,130,246,0.15),rgba(255,255,255,0))] pointer-events-none"></div>
 
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 relative z-10">
-      
-      <!-- Top Navigation: Langues & Switch Favoris -->
-      <div class="flex justify-between items-center mb-8">
-        <button 
-          id="btn-fav-filter" 
-          class="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-slate-900 border border-slate-800 hover:border-slate-700 text-sm font-medium transition text-slate-300"
-        >
-          <span>⭐</span> <span data-i18n="favOnly">Mes Favoris</span>
-        </button>
+    <!-- BARRE D'OUTILS PERMANENTE EN HAUT (HEADER / NAVBAR) -->
+    <header class="fixed top-0 left-0 w-full z-50 bg-slate-900/80 backdrop-blur-md border-b border-slate-800/80 px-4 lg:px-8 py-3">
+      <div class="max-w-7xl mx-auto flex items-center justify-between gap-4">
+        
+        <!-- Logo / Accueil -->
+        <a href="#" id="btn-reset" class="flex items-center gap-2 text-lg font-extrabold tracking-tight text-white hover:text-blue-400 transition shrink-0">
+          <span class="text-2xl">⚡</span>
+          <span>Vault<span class="text-blue-500">.dev</span></span>
+        </a>
 
-        <!-- Selector de langue -->
-        <div class="flex items-center bg-slate-900 border border-slate-800 rounded-xl p-1 gap-1">
-          <button class="lang-btn active px-3 py-1 text-xs font-semibold rounded-lg transition" data-lang="fr">FR</button>
-          <button class="lang-btn px-3 py-1 text-xs font-semibold rounded-lg text-slate-400 hover:text-white transition" data-lang="en">EN</button>
-          <button class="lang-btn px-3 py-1 text-xs font-semibold rounded-lg text-slate-400 hover:text-white transition" data-lang="es">ES</button>
+        <!-- Menu Navigation Central (Dropdowns) -->
+        <nav class="hidden md:flex items-center gap-1 text-sm font-medium">
+          
+          <!-- Bouton Tout afficher -->
+          <button class="nav-filter-btn active px-3 py-1.5 rounded-lg text-slate-300 hover:text-white hover:bg-slate-800 transition" data-source="ALL" data-cat="ALL" data-i18n="navAll">
+            Tout afficher
+          </button>
+
+          <!-- Dropdown FREE DEV -->
+          <div class="relative group">
+            <button class="flex items-center gap-1 px-3 py-1.5 rounded-lg text-slate-300 hover:text-white hover:bg-slate-800 transition">
+              <span class="w-2 h-2 rounded-full bg-emerald-400"></span>
+              Free Dev
+              <svg class="w-3.5 h-3.5 text-slate-400 group-hover:rotate-180 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+            </button>
+            
+            <div class="absolute left-0 top-full pt-2 hidden group-hover:block w-64">
+              <div class="bg-slate-900 border border-slate-800 rounded-xl shadow-2xl p-2 max-h-80 overflow-y-auto scrollbar-thin">
+                <button class="nav-filter-btn w-full text-left px-3 py-1.5 rounded-lg text-xs font-semibold text-emerald-400 hover:bg-emerald-950/50 transition mb-1" data-source="free_for_dev" data-cat="ALL" data-i18n="allFreeDev">
+                  Toutes les catégories Free Dev
+                </button>
+                <div class="h-px bg-slate-800 my-1"></div>
+                {freeDevCategories.map(cat => (
+                  <button class="nav-filter-btn w-full text-left px-3 py-1.5 rounded-lg text-xs text-slate-400 hover:text-white hover:bg-slate-800 truncate transition" data-source="free_for_dev" data-cat={cat}>
+                    {cat}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          <!-- Dropdown OSINT -->
+          <div class="relative group">
+            <button class="flex items-center gap-1 px-3 py-1.5 rounded-lg text-slate-300 hover:text-white hover:bg-slate-800 transition">
+              <span class="w-2 h-2 rounded-full bg-purple-400"></span>
+              OSINT
+              <svg class="w-3.5 h-3.5 text-slate-400 group-hover:rotate-180 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+            </button>
+            
+            <div class="absolute left-0 top-full pt-2 hidden group-hover:block w-64">
+              <div class="bg-slate-900 border border-slate-800 rounded-xl shadow-2xl p-2 max-h-80 overflow-y-auto scrollbar-thin">
+                <button class="nav-filter-btn w-full text-left px-3 py-1.5 rounded-lg text-xs font-semibold text-purple-400 hover:bg-purple-950/50 transition mb-1" data-source="awesome_osint" data-cat="ALL" data-i18n="allOsint">
+                  Toutes les catégories OSINT
+                </button>
+                <div class="h-px bg-slate-800 my-1"></div>
+                {osintCategories.map(cat => (
+                  <button class="nav-filter-btn w-full text-left px-3 py-1.5 rounded-lg text-xs text-slate-400 hover:text-white hover:bg-slate-800 truncate transition" data-source="awesome_osint" data-cat={cat}>
+                    {cat}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          <!-- Bouton FAVORIS -->
+          <button id="btn-fav-toggle" class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-yellow-400 hover:bg-yellow-400/10 transition border border-transparent">
+            <span>⭐</span>
+            <span data-i18n="favOnly">Favoris</span>
+            <span id="fav-badge" class="ml-1 text-[10px] bg-yellow-500/20 text-yellow-300 px-1.5 py-0.5 rounded-full">0</span>
+          </button>
+        </nav>
+
+        <!-- Sélecteur de Langue (Bout) -->
+        <div class="flex items-center bg-slate-950 border border-slate-800 rounded-xl p-1 gap-1 shrink-0">
+          <button class="lang-btn active px-2.5 py-1 text-xs font-bold rounded-lg transition" data-lang="fr">FR</button>
+          <button class="lang-btn px-2.5 py-1 text-xs font-bold rounded-lg text-slate-400 hover:text-white transition" data-lang="en">EN</button>
+          <button class="lang-btn px-2.5 py-1 text-xs font-bold rounded-lg text-slate-400 hover:text-white transition" data-lang="es">ES</button>
         </div>
-      </div>
 
-      <!-- Header -->
-      <header class="text-center max-w-3xl mx-auto mb-10">
-        <h1 class="text-4xl sm:text-6xl font-extrabold tracking-tight text-white mb-4">
+      </div>
+    </header>
+
+    <!-- MAIN CONTENT -->
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 relative z-10">
+      
+      <!-- Hero / Recherche -->
+      <section class="text-center max-w-3xl mx-auto mb-10">
+        <h1 class="text-3xl sm:text-5xl font-extrabold tracking-tight text-white mb-3">
           Dev & OSINT <span class="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 via-teal-400 to-emerald-400">Vault</span>
         </h1>
-        <p class="text-slate-400 text-base sm:text-lg" data-i18n="subtitle">
-          Accédez instantanément à toutes les ressources et outils gratuits pour développeurs et chercheurs OSINT.
+        <p class="text-slate-400 text-sm sm:text-base" data-i18n="subtitle">
+          Trouvez instantanément les meilleures ressources gratuites pour devs et chercheurs OSINT.
         </p>
 
-        <!-- Barre de recherche principale -->
-        <div class="mt-8 relative max-w-2xl mx-auto">
+        <!-- Barre de recherche -->
+        <div class="mt-6 relative max-w-2xl mx-auto">
           <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-slate-500">
             🔍
           </div>
           <input 
             type="text" 
             id="search-input" 
-            placeholder="Rechercher par nom, mot-clé, outil..." 
-            class="w-full pl-11 pr-4 py-4 rounded-2xl bg-slate-900/90 border border-slate-800 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 transition shadow-2xl backdrop-blur-xl"
+            placeholder="Rechercher un outil..." 
+            class="w-full pl-11 pr-4 py-3.5 rounded-2xl bg-slate-900/90 border border-slate-800 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 transition shadow-xl"
           />
-        </div>
-      </header>
-
-      <!-- Filtres par Catégories (Badges) -->
-      <section class="mb-8">
-        <div class="flex items-center gap-2 overflow-x-auto pb-4 scrollbar-none" id="categories-bar">
-          <button 
-            class="cat-btn active shrink-0 px-4 py-2 rounded-xl text-xs font-semibold bg-blue-600 text-white transition border border-blue-500" 
-            data-cat="ALL"
-            data-i18n="allCats"
-          >
-            Toutes les catégories
-          </button>
-          {rawCategories.map((cat) => (
-            <button 
-              class="cat-btn shrink-0 px-4 py-2 rounded-xl text-xs font-medium bg-slate-900 text-slate-400 hover:text-white border border-slate-800 hover:border-slate-700 transition" 
-              data-cat={cat}
-            >
-              {cat}
-            </button>
-          ))}
         </div>
       </section>
 
-      <!-- Informations & Compteur -->
-      <div class="flex justify-between items-center mb-6 px-1">
-        <span id="counter" class="text-sm font-medium text-slate-400">
+      <!-- Compteur et Filtre actif -->
+      <div class="flex flex-wrap justify-between items-center mb-6 px-1 gap-2">
+        <div id="active-filter-indicator" class="text-xs text-blue-400 bg-blue-500/10 border border-blue-500/20 px-3 py-1 rounded-full hidden">
+          Filtre : <span id="filter-name-text" class="font-bold"></span>
+        </div>
+        <span id="counter" class="text-sm font-medium text-slate-400 ml-auto">
           Affichage de <strong class="text-white">{toolsData.length}</strong> ressources
         </span>
       </div>
@@ -95,11 +144,12 @@ const rawCategories = [...new Set(toolsData.map(item => item.category))].filter(
         <div id="tools-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
           {toolsData.map((tool, index) => (
             <div 
-              class="tool-card group relative bg-slate-900/50 border border-slate-800/80 hover:border-slate-700 rounded-2xl p-5 transition-all duration-200 flex flex-col justify-between backdrop-blur-sm"
+              class="tool-card group relative bg-slate-900/50 border border-slate-800 hover:border-slate-700 rounded-2xl p-5 transition-all duration-200 flex flex-col justify-between backdrop-blur-sm"
               data-id={index}
               data-title={tool.title} 
               data-desc={tool.description} 
               data-cat={tool.category}
+              data-source={tool.source}
             >
               <div>
                 <div class="flex items-center justify-between gap-2 mb-3">
@@ -108,7 +158,7 @@ const rawCategories = [...new Set(toolsData.map(item => item.category))].filter(
                   </span>
                   
                   <div class="flex items-center gap-2">
-                    <button class="fav-btn text-slate-600 hover:text-yellow-400 transition" data-id={index} title="Favori">
+                    <button class="fav-btn text-slate-600 hover:text-yellow-400 transition text-lg" data-id={index} title="Favori">
                       ★
                     </button>
                     <span class={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded ${tool.source === 'free_for_dev' ? 'bg-emerald-950 text-emerald-400 border border-emerald-800/50' : 'bg-purple-950 text-purple-400 border border-purple-800/50'}`}>
@@ -122,7 +172,7 @@ const rawCategories = [...new Set(toolsData.map(item => item.category))].filter(
                 </h3>
                 
                 <p class="text-slate-400 text-sm leading-relaxed line-clamp-3 mb-4">
-                  {tool.description || "Aucune description disponible pour cette ressource."}
+                  {tool.description || "Aucune description disponible."}
                 </p>
               </div>
 
@@ -141,57 +191,65 @@ const rawCategories = [...new Set(toolsData.map(item => item.category))].filter(
 
     </div>
 
-    <!-- Script complet Engine / Search / Traduction / Favoris -->
+    <!-- Script complet Engine & Interactivité -->
     <script>
       import Fuse from 'fuse.js';
 
-      // 1. Dictionnaires de traduction
       const i18n = {
         fr: {
-          subtitle: "Accédez instantanément à toutes les ressources et outils gratuits pour développeurs et chercheurs OSINT.",
+          subtitle: "Trouvez instantanément les meilleures ressources gratuites pour devs et chercheurs OSINT.",
           searchPlaceholder: "Rechercher par nom, mot-clé, outil...",
-          allCats: "Toutes les catégories",
-          favOnly: "Mes Favoris",
+          navAll: "Tout afficher",
+          allFreeDev: "Toutes les catégories Free Dev",
+          allOsint: "Toutes les catégories OSINT",
+          favOnly: "Favoris",
           visitBtn: "Visiter le site",
           counterText: (count) => `Affichage de <strong class="text-white">${count}</strong> ressources`
         },
         en: {
-          subtitle: "Instantly access all free resources and tools for developers and OSINT researchers.",
+          subtitle: "Instantly find the best free resources for devs and OSINT researchers.",
           searchPlaceholder: "Search by name, keyword, tool...",
-          allCats: "All Categories",
-          favOnly: "My Favorites",
+          navAll: "Show All",
+          allFreeDev: "All Free Dev categories",
+          allOsint: "All OSINT categories",
+          favOnly: "Favorites",
           visitBtn: "Visit Site",
           counterText: (count) => `Showing <strong class="text-white">${count}</strong> resources`
         },
         es: {
-          subtitle: "Acceda al instante a todos los recursos y herramientas gratuitas para desarrolladores e investigadores OSINT.",
+          subtitle: "Encuentre al instante los mejores recursos gratuitos para desarrolladores e investigadores OSINT.",
           searchPlaceholder: "Buscar por nombre, palabra clave, herramienta...",
-          allCats: "Todas las categorías",
-          favOnly: "Mis Favoritos",
+          navAll: "Mostrar todo",
+          allFreeDev: "Todas las categorías Free Dev",
+          allOsint: "Todas las categorías OSINT",
+          favOnly: "Favoritos",
           visitBtn: "Visitar sitio",
           counterText: (count) => `Mostrando <strong class="text-white">${count}</strong> recursos`
         }
       };
 
-      // 2. État Global
+      // State
       let currentLang = 'fr';
-      let currentCategory = 'ALL';
+      let selectedSource = 'ALL';
+      let selectedCategory = 'ALL';
       let favOnly = false;
       let favorites = JSON.parse(localStorage.getItem('vault_favs') || '[]');
 
-      // Éléments du DOM
+      // DOM
       const cards = Array.from(document.querySelectorAll('.tool-card'));
       const input = document.getElementById('search-input') as HTMLInputElement;
       const counter = document.getElementById('counter');
-      const catBtns = document.querySelectorAll('.cat-btn');
-      const favFilterBtn = document.getElementById('btn-fav-filter');
+      const favBadge = document.getElementById('fav-badge');
+      const activeFilterIndicator = document.getElementById('active-filter-indicator');
+      const filterNameText = document.getElementById('filter-name-text');
 
-      // 3. Moteur Fuse.js
+      // Fuse Engine
       const toolsData = cards.map((card, index) => ({
         index,
         title: card.getAttribute('data-title') || '',
         desc: card.getAttribute('data-desc') || '',
-        cat: card.getAttribute('data-cat') || ''
+        cat: card.getAttribute('data-cat') || '',
+        source: card.getAttribute('data-source') || ''
       }));
 
       const fuse = new Fuse(toolsData, {
@@ -200,27 +258,27 @@ const rawCategories = [...new Set(toolsData.map(item => item.category))].filter(
         ignoreLocation: true
       });
 
-      // 4. Fonction de filtrage globale (Combine Recherche + Catégorie + Favoris)
+      // Filter Logic
       function filterTools() {
         const query = input.value.trim();
         let validIndices = toolsData.map(t => t.index);
 
-        // A. Filtre par recherche
         if (query) {
           validIndices = fuse.search(query).map(r => r.item.index);
         }
 
-        // B. Filtre par catégorie
-        if (currentCategory !== 'ALL') {
-          validIndices = validIndices.filter(idx => toolsData[idx].cat === currentCategory);
+        if (selectedSource !== 'ALL') {
+          validIndices = validIndices.filter(idx => toolsData[idx].source === selectedSource);
         }
 
-        // C. Filtre par favoris
+        if (selectedCategory !== 'ALL') {
+          validIndices = validIndices.filter(idx => toolsData[idx].cat === selectedCategory);
+        }
+
         if (favOnly) {
           validIndices = validIndices.filter(idx => favorites.includes(idx.toString()));
         }
 
-        // Masquer/Afficher les cartes
         let visibleCount = 0;
         cards.forEach((card, idx) => {
           if (validIndices.includes(idx)) {
@@ -231,32 +289,42 @@ const rawCategories = [...new Set(toolsData.map(item => item.category))].filter(
           }
         });
 
-        // Mise à jour du compteur
-        if (counter) {
-          counter.innerHTML = i18n[currentLang].counterText(visibleCount);
+        if (counter) counter.innerHTML = i18n[currentLang].counterText(visibleCount);
+
+        // Update Indicator
+        if (selectedCategory !== 'ALL' || selectedSource !== 'ALL' || favOnly) {
+          activeFilterIndicator?.classList.remove('hidden');
+          let label = favOnly ? "Favoris" : `${selectedSource !== 'ALL' ? (selectedSource === 'free_for_dev' ? 'Free-Dev' : 'OSINT') : ''} ${selectedCategory !== 'ALL' ? '> ' + selectedCategory : ''}`;
+          if (filterNameText) filterNameText.textContent = label;
+        } else {
+          activeFilterIndicator?.classList.add('hidden');
         }
       }
 
-      // 5. Gestion de la recherche
+      // Event Listeners
       input?.addEventListener('input', filterTools);
 
-      // 6. Gestion des Catégories
-      catBtns.forEach(btn => {
+      document.querySelectorAll('.nav-filter-btn').forEach(btn => {
         btn.addEventListener('click', () => {
-          catBtns.forEach(b => {
-            b.classList.remove('bg-blue-600', 'text-white', 'border-blue-500');
-            b.classList.add('bg-slate-900', 'text-slate-400', 'border-slate-800');
-          });
-          btn.classList.remove('bg-slate-900', 'text-slate-400', 'border-slate-800');
-          btn.classList.add('bg-blue-600', 'text-white', 'border-blue-500');
-
-          currentCategory = btn.getAttribute('data-cat') || 'ALL';
+          favOnly = false;
+          selectedSource = btn.getAttribute('data-source') || 'ALL';
+          selectedCategory = btn.getAttribute('data-cat') || 'ALL';
           filterTools();
         });
       });
 
-      // 7. Gestion des Favoris
+      document.getElementById('btn-reset')?.addEventListener('click', (e) => {
+        e.preventDefault();
+        favOnly = false;
+        selectedSource = 'ALL';
+        selectedCategory = 'ALL';
+        input.value = '';
+        filterTools();
+      });
+
+      // Favorites
       function updateFavIcons() {
+        if (favBadge) favBadge.textContent = favorites.length.toString();
         document.querySelectorAll('.fav-btn').forEach(btn => {
           const id = btn.getAttribute('data-id');
           if (favorites.includes(id)) {
@@ -287,22 +355,19 @@ const rawCategories = [...new Set(toolsData.map(item => item.category))].filter(
         });
       });
 
-      favFilterBtn?.addEventListener('click', () => {
+      document.getElementById('btn-fav-toggle')?.addEventListener('click', () => {
         favOnly = !favOnly;
-        favFilterBtn.classList.toggle('border-yellow-500/50');
-        favFilterBtn.classList.toggle('bg-yellow-500/10');
         filterTools();
       });
 
-      // 8. System de Traduction
+      // i18n Language Switcher
       document.querySelectorAll('.lang-btn').forEach(btn => {
         btn.addEventListener('click', () => {
           const lang = btn.getAttribute('data-lang');
           if (!lang || !i18n[lang]) return;
 
           currentLang = lang;
-          
-          // Style boutons langue
+
           document.querySelectorAll('.lang-btn').forEach(b => {
             b.classList.remove('active', 'text-white', 'bg-slate-800');
             b.classList.add('text-slate-400');
@@ -310,7 +375,6 @@ const rawCategories = [...new Set(toolsData.map(item => item.category))].filter(
           btn.classList.add('active', 'text-white', 'bg-slate-800');
           btn.classList.remove('text-slate-400');
 
-          // Appliquer traductions
           document.querySelectorAll('[data-i18n]').forEach(el => {
             const key = el.getAttribute('data-i18n');
             if (key && i18n[currentLang][key]) {
@@ -323,7 +387,7 @@ const rawCategories = [...new Set(toolsData.map(item => item.category))].filter(
         });
       });
 
-      // Initialisation
+      // Init
       updateFavIcons();
     </script>
   </body>
