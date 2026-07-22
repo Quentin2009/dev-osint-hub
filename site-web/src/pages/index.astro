@@ -2,11 +2,26 @@
 import '../styles/global.css';
 import toolsData from '../data/tools.json';
 
-// Séparation des catégories par source
-const freeDevCategories = [...new Set(toolsData.filter(i => i.source === 'free_for_dev').map(i => i.category))].sort();
-const osintCategories = [...new Set(toolsData.filter(i => i.source === 'awesome_osint').map(i => i.category))].sort();
----
+// Fonction de nettoyage des catégories OSINT
+const cleanCategory = (cat) => {
+  if (!cat) return '';
+  // Supprime la syntaxe Markdown [↑](#...) et les espaces inutiles
+  return cat.replace(/\[↑\]\([^)]+\)/g, '').trim();
+};
 
+// Séparation et nettoyage des catégories par source
+const freeDevCategories = [...new Set(
+  toolsData
+    .filter(i => i.source === 'free_for_dev')
+    .map(i => cleanCategory(i.category))
+)].filter(Boolean).sort();
+
+const osintCategories = [...new Set(
+  toolsData
+    .filter(i => i.source === 'awesome_osint')
+    .map(i => cleanCategory(i.category))
+)].filter(Boolean).sort();
+---
 <html lang="fr" class="dark">
   <head>
     <meta charset="utf-8" />
@@ -153,10 +168,10 @@ const osintCategories = [...new Set(toolsData.filter(i => i.source === 'awesome_
             >
               <div>
                 <div class="flex items-center justify-between gap-2 mb-3">
-                  <span class="text-[11px] font-semibold px-2.5 py-1 rounded-md bg-slate-800 text-slate-300 border border-slate-700/50 truncate max-w-[180px]">
-                    {tool.category}
-                  </span>
-                  
+                <!-- C'EST ICI ! -->
+            <span class="text-[11px] font-semibold px-2.5 py-1 rounded-md bg-slate-800 text-slate-300 border border-slate-700/50 truncate max-w-[180px]">
+              {tool.category.replace(/\[↑\]\([^)]+\)/g, '').trim()}
+            </span>                  
                   <div class="flex items-center gap-2">
                     <button class="fav-btn text-slate-600 hover:text-yellow-400 transition text-lg" data-id={index} title="Favori">
                       ★
