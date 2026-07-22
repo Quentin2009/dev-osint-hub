@@ -2,26 +2,30 @@
 import '../styles/global.css';
 import toolsData from '../data/tools.json';
 
-// Fonction de nettoyage des catégories OSINT
-const cleanCategory = (cat) => {
-  if (!cat) return '';
-  // Supprime la syntaxe Markdown [↑](#...) et les espaces inutiles
-  return cat.replace(/\[↑\]\([^)]+\)/g, '').trim();
+// Nettoyage des caractères Markdown parasites [↑](#...)
+const cleanText = (str) => {
+  if (!str) return '';
+  return str.replace(/\[↑\]\([^)]+\)/g, '').trim();
 };
 
-// Séparation et nettoyage des catégories par source
-const freeDevCategories = [...new Set(
-  toolsData
-    .filter(i => i.source === 'free_for_dev')
-    .map(i => cleanCategory(i.category))
-)].filter(Boolean).sort();
+// Statistiques globales du Vault
+const totalTools = toolsData.length;
+const freeDevTools = toolsData.filter(i => i.source === 'free_for_dev');
+const osintTools = toolsData.filter(i => i.source === 'awesome_osint');
 
-const osintCategories = [...new Set(
-  toolsData
-    .filter(i => i.source === 'awesome_osint')
-    .map(i => cleanCategory(i.category))
-)].filter(Boolean).sort();
+const freeDevCount = freeDevTools.length;
+const osintCount = osintTools.length;
+
+// Calcul des pourcentages pour la barre de répartition
+const freeDevPercent = Math.round((freeDevCount / totalTools) * 100);
+const osintPercent = Math.round((osintCount / totalTools) * 100);
+
+// Séparation et nettoyage des catégories
+const freeDevCategories = [...new Set(freeDevTools.map(i => cleanText(i.category)))].filter(Boolean).sort();
+const osintCategories = [...new Set(osintTools.map(i => cleanText(i.category)))].filter(Boolean).sort();
+const allCategoriesCount = [...new Set(toolsData.map(i => cleanText(i.category)))].filter(Boolean).length;
 ---
+
 <html lang="fr" class="dark">
   <head>
     <meta charset="utf-8" />
@@ -31,13 +35,94 @@ const osintCategories = [...new Set(
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   </head>
-  <body class="bg-slate-950 text-slate-100 min-h-screen font-['Inter',sans-serif] antialiased pt-20 selection:bg-blue-500 selection:text-white">
+  <body class="bg-slate-950 text-slate-100 min-h-screen font-['Inter',sans-serif] antialiased pt-20 selection:bg-blue-500 selection:text-white flex flex-col justify-between">
     
     <!-- Background Gradient -->
     <div class="fixed inset-0 bg-[radial-gradient(ellipse_80%_80%_at_50%_-20%,rgba(59,130,246,0.15),rgba(255,255,255,0))] pointer-events-none"></div>
 
-    <!-- BARRE D'OUTILS PERMANENTE EN HAUT (HEADER / NAVBAR) -->
-    <header class="fixed top-0 left-0 w-full z-50 bg-slate-900/80 backdrop-blur-md border-b border-slate-800/80 px-4 lg:px-8 py-3">
+    <!-- Notification Toast -->
+    <div id="toast" class="fixed bottom-5 right-5 z-50 bg-emerald-600 text-white px-4 py-3 rounded-xl shadow-2xl font-semibold text-sm transition-all duration-300 opacity-0 translate-y-10 pointer-events-none flex items-center gap-2">
+      <span>✅</span> <span id="toast-message">Action réussie !</span>
+    </div>
+
+    <!-- MODALE SUGGÉRER UN OUTIL -->
+    <div id="suggest-modal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm hidden opacity-0 transition-opacity duration-200">
+      <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6 w-full max-w-lg shadow-2xl relative transform scale-95 transition-transform duration-200" id="modal-container">
+        
+        <button id="close-modal" class="absolute top-4 right-4 text-slate-400 hover:text-white text-xl">✕</button>
+
+        <h2 class="text-xl font-bold text-white mb-1 flex items-center gap-2">
+          <span>💡</span> Proposer un nouvel outil
+        </h2>
+        <p class="text-xs text-slate-400 mb-5">
+          Connaissez-vous une ressource gratuite pour devs ou OSINT ? Partagez-la !
+        </p>
+
+        <form id="suggest-form" class="space-y-4">
+          <div>
+            <label class="block text-xs font-semibold text-slate-300 mb-1">Nom de l'outil *</label>
+            <input type="text" id="suggest-name" required placeholder="Ex: CyberChef" class="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-sm text-white focus:outline-none focus:border-blue-500" />
+          </div>
+
+          <div>
+            <label class="block text-xs font-semibold text-slate-300 mb-1">Lien URL *</label>
+            <input type="url" id="suggest-url" required placeholder="https://..." class="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-sm text-white focus:outline-none focus:border-blue-500" />
+          </div>
+
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label class="block text-xs font-semibold text-slate-300 mb-1">Source *</label>
+              <select id="suggest-source" class="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-sm text-white focus:outline-none focus:border-blue-500">
+                <option value="free_for_dev">Free Dev</option>
+                <option value="awesome_osint">OSINT</option>
+                <option value="autre">Autre</option>
+              </select>
+            </div>
+            <div>
+              <label class="block text-xs font-semibold text-slate-300 mb-1">Catégorie *</label>
+              <input type="text" id="suggest-cat" required placeholder="Ex: Encryption / Hosting" class="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-sm text-white focus:outline-none focus:border-blue-500" />
+            </div>
+          </div>
+
+          <div>
+            <label class="block text-xs font-semibold text-slate-300 mb-1">Description courte</label>
+            <textarea id="suggest-desc" rows="3" placeholder="Brève explication du service..." class="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-sm text-white focus:outline-none focus:border-blue-500 resize-none"></textarea>
+          </div>
+
+          <div class="pt-2 flex gap-2">
+            <button type="submit" class="flex-1 bg-blue-600 hover:bg-blue-500 text-white font-semibold py-2.5 rounded-xl text-sm transition">
+              📧 Envoyer par Mail
+            </button>
+            <button type="button" id="btn-copy-json" class="px-4 bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold py-2.5 rounded-xl text-sm transition" title="Copier au format JSON">
+              📋 Copier JSON
+            </button>
+          </div>
+        </form>
+
+      </div>
+    </div>
+
+    <!-- MODALE À PROPOS / FAQ (ÉTAPE FINALE) -->
+    <div id="about-modal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm hidden opacity-0 transition-opacity duration-200">
+      <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6 w-full max-w-lg shadow-2xl relative" id="about-modal-container">
+        <button id="close-about-modal" class="absolute top-4 right-4 text-slate-400 hover:text-white text-xl">✕</button>
+        <h2 class="text-xl font-bold text-white mb-3">À propos de Dev & OSINT Vault</h2>
+        <div class="space-y-3 text-xs text-slate-300 leading-relaxed">
+          <p>
+            <strong>Dev & OSINT Vault</strong> est un répertoire centralisé regroupant des milliers d'outils, d'APIs et de ressources gratuites destinés aux développeurs, chercheurs en cybersécurité et analystes OSINT.
+          </p>
+          <p>
+            Toutes les données sont automatiquement indexées à partir des dépôts Open Source officiels <em>Ripienaar/Free-for-dev</em> et <em>Jivoi/Awesome-OSINT</em>.
+          </p>
+          <p class="pt-2 text-slate-400 border-t border-slate-800">
+            Contact : <a href="mailto:devetosint@gmail.com" class="text-blue-400 hover:underline">devetosint@gmail.com</a>
+          </p>
+        </div>
+      </div>
+    </div>
+
+    <!-- BARRE D'OUTILS PERMANENTE (HEADER / NAVBAR) -->
+    <header class="fixed top-0 left-0 w-full z-40 bg-slate-900/80 backdrop-blur-md border-b border-slate-800/80 px-4 lg:px-8 py-3">
       <div class="max-w-7xl mx-auto flex items-center justify-between gap-4">
         
         <!-- Logo / Accueil -->
@@ -46,10 +131,9 @@ const osintCategories = [...new Set(
           <span>Vault<span class="text-blue-500">.dev</span></span>
         </a>
 
-        <!-- Menu Navigation Central (Dropdowns) -->
+        <!-- Menu Navigation Central -->
         <nav class="hidden md:flex items-center gap-1 text-sm font-medium">
           
-          <!-- Bouton Tout afficher -->
           <button class="nav-filter-btn active px-3 py-1.5 rounded-lg text-slate-300 hover:text-white hover:bg-slate-800 transition" data-source="ALL" data-cat="ALL" data-i18n="navAll">
             Tout afficher
           </button>
@@ -100,29 +184,44 @@ const osintCategories = [...new Set(
             </div>
           </div>
 
-          <!-- Bouton FAVORIS -->
-          <button id="btn-fav-toggle" class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-yellow-400 hover:bg-yellow-400/10 transition border border-transparent">
-            <span>⭐</span>
-            <span data-i18n="favOnly">Favoris</span>
-            <span id="fav-badge" class="ml-1 text-[10px] bg-yellow-500/20 text-yellow-300 px-1.5 py-0.5 rounded-full">0</span>
-          </button>
+          <!-- FAVORIS & EXPORT TXT -->
+          <div class="flex items-center gap-1 bg-slate-950 border border-slate-800 rounded-xl p-0.5 ml-2">
+            <button id="btn-fav-toggle" class="flex items-center gap-1.5 px-3 py-1 rounded-lg text-yellow-400 hover:bg-yellow-400/10 transition">
+              <span>⭐</span>
+              <span data-i18n="favOnly">Favoris</span>
+              <span id="fav-badge" class="text-[10px] bg-yellow-500/20 text-yellow-300 px-1.5 py-0.5 rounded-full">0</span>
+            </button>
+            <div class="w-px h-4 bg-slate-800"></div>
+            <button id="btn-export-fav" class="flex items-center gap-1 px-2.5 py-1 text-slate-400 hover:text-white transition text-xs font-semibold" title="Exporter les favoris en .txt">
+              <span>📥</span>
+              <span>Exporter (.txt)</span>
+            </button>
+          </div>
         </nav>
 
-        <!-- Sélecteur de Langue (Bout) -->
-        <div class="flex items-center bg-slate-950 border border-slate-800 rounded-xl p-1 gap-1 shrink-0">
-          <button class="lang-btn active px-2.5 py-1 text-xs font-bold rounded-lg transition" data-lang="fr">FR</button>
-          <button class="lang-btn px-2.5 py-1 text-xs font-bold rounded-lg text-slate-400 hover:text-white transition" data-lang="en">EN</button>
-          <button class="lang-btn px-2.5 py-1 text-xs font-bold rounded-lg text-slate-400 hover:text-white transition" data-lang="es">ES</button>
+        <!-- Actions Droite (Bouton Suggérer + Langue) -->
+        <div class="flex items-center gap-2 shrink-0">
+          <button id="open-suggest-modal" class="hidden sm:flex items-center gap-1.5 bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold px-3 py-2 rounded-xl transition shadow-lg shadow-blue-600/20">
+            <span>➕</span>
+            <span>Suggérer</span>
+          </button>
+
+          <!-- Sélecteur de Langue -->
+          <div class="flex items-center bg-slate-950 border border-slate-800 rounded-xl p-1 gap-1">
+            <button class="lang-btn active px-2.5 py-1 text-xs font-bold rounded-lg transition" data-lang="fr">FR</button>
+            <button class="lang-btn px-2.5 py-1 text-xs font-bold rounded-lg text-slate-400 hover:text-white transition" data-lang="en">EN</button>
+            <button class="lang-btn px-2.5 py-1 text-xs font-bold rounded-lg text-slate-400 hover:text-white transition" data-lang="es">ES</button>
+          </div>
         </div>
 
       </div>
     </header>
 
     <!-- MAIN CONTENT -->
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 relative z-10">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 relative z-10 w-full">
       
       <!-- Hero / Recherche -->
-      <section class="text-center max-w-3xl mx-auto mb-10">
+      <section class="text-center max-w-3xl mx-auto mb-8">
         <h1 class="text-3xl sm:text-5xl font-extrabold tracking-tight text-white mb-3">
           Dev & OSINT <span class="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 via-teal-400 to-emerald-400">Vault</span>
         </h1>
@@ -144,6 +243,40 @@ const osintCategories = [...new Set(
         </div>
       </section>
 
+      <!-- DASHBOARD / STATISTIQUES DU VAULT -->
+      <section class="max-w-4xl mx-auto mb-10 bg-slate-900/40 border border-slate-800/80 rounded-2xl p-4 sm:p-5 backdrop-blur-sm shadow-xl">
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-4 text-center mb-4">
+          <div class="p-3 bg-slate-950/60 rounded-xl border border-slate-800/60">
+            <span class="block text-2xl font-extrabold text-white">{totalTools}</span>
+            <span class="text-xs text-slate-400 font-medium">Ressources Total</span>
+          </div>
+          <div class="p-3 bg-emerald-950/20 rounded-xl border border-emerald-900/30">
+            <span class="block text-2xl font-extrabold text-emerald-400">{freeDevCount}</span>
+            <span class="text-xs text-emerald-300/80 font-medium">Free Dev</span>
+          </div>
+          <div class="p-3 bg-purple-950/20 rounded-xl border border-purple-900/30">
+            <span class="block text-2xl font-extrabold text-purple-400">{osintCount}</span>
+            <span class="text-xs text-purple-300/80 font-medium">OSINT</span>
+          </div>
+          <div class="p-3 bg-slate-950/60 rounded-xl border border-slate-800/60">
+            <span class="block text-2xl font-extrabold text-blue-400">{allCategoriesCount}</span>
+            <span class="text-xs text-slate-400 font-medium">Catégories</span>
+          </div>
+        </div>
+
+        <!-- Barre de répartition visuelle -->
+        <div>
+          <div class="flex justify-between text-[11px] font-bold mb-1.5 px-0.5">
+            <span class="text-emerald-400">Free Dev ({freeDevPercent}%)</span>
+            <span class="text-purple-400">OSINT ({osintPercent}%)</span>
+          </div>
+          <div class="w-full h-2.5 bg-slate-950 rounded-full overflow-hidden flex p-0.5 border border-slate-800">
+            <div style={`width: ${freeDevPercent}%`} class="h-full bg-emerald-500 rounded-l-full transition-all duration-500"></div>
+            <div style={`width: ${osintPercent}%`} class="h-full bg-purple-500 rounded-r-full transition-all duration-500"></div>
+          </div>
+        </div>
+      </section>
+
       <!-- Compteur et Filtre actif -->
       <div class="flex flex-wrap justify-between items-center mb-6 px-1 gap-2">
         <div id="active-filter-indicator" class="text-xs text-blue-400 bg-blue-500/10 border border-blue-500/20 px-3 py-1 rounded-full hidden">
@@ -157,56 +290,102 @@ const osintCategories = [...new Set(
       <!-- Grille des Cartes -->
       <main>
         <div id="tools-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-          {toolsData.map((tool, index) => (
-            <div 
-              class="tool-card group relative bg-slate-900/50 border border-slate-800 hover:border-slate-700 rounded-2xl p-5 transition-all duration-200 flex flex-col justify-between backdrop-blur-sm"
-              data-id={index}
-              data-title={tool.title} 
-              data-desc={tool.description} 
-              data-cat={tool.category}
-              data-source={tool.source}
-            >
-              <div>
-                <div class="flex items-center justify-between gap-2 mb-3">
-                <!-- C'EST ICI ! -->
-            <span class="text-[11px] font-semibold px-2.5 py-1 rounded-md bg-slate-800 text-slate-300 border border-slate-700/50 truncate max-w-[180px]">
-              {tool.category.replace(/\[↑\]\([^)]+\)/g, '').trim()}
-            </span>                  
-                  <div class="flex items-center gap-2">
-                    <button class="fav-btn text-slate-600 hover:text-yellow-400 transition text-lg" data-id={index} title="Favori">
-                      ★
-                    </button>
-                    <span class={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded ${tool.source === 'free_for_dev' ? 'bg-emerald-950 text-emerald-400 border border-emerald-800/50' : 'bg-purple-950 text-purple-400 border border-purple-800/50'}`}>
-                      {tool.source === 'free_for_dev' ? 'Free-Dev' : 'OSINT'}
+          {toolsData.map((tool, index) => {
+            const cleanedCat = cleanText(tool.category);
+            const isFreeDev = tool.source === 'free_for_dev';
+            const isOsint = tool.source === 'awesome_osint';
+
+            return (
+              <div 
+                class="tool-card group relative bg-slate-900/50 border border-slate-800 hover:border-slate-700 rounded-2xl p-5 transition-all duration-200 flex flex-col justify-between backdrop-blur-sm"
+                data-id={index}
+                data-title={tool.title} 
+                data-desc={tool.description} 
+                data-cat={cleanedCat}
+                data-source={tool.source}
+                data-url={tool.url}
+              >
+                <div>
+                  <div class="flex items-center justify-between gap-2 mb-3">
+                    <span class="text-[11px] font-semibold px-2.5 py-1 rounded-md bg-slate-800 text-slate-300 border border-slate-700/50 truncate max-w-[180px]">
+                      {cleanedCat}
                     </span>
+                    
+                    <div class="flex items-center gap-2">
+                      <button class="copy-btn text-slate-500 hover:text-blue-400 transition text-sm" data-url={tool.url} title="Copier le lien">
+                        🔗
+                      </button>
+                      <button class="fav-btn text-slate-600 hover:text-yellow-400 transition text-lg" data-id={index} title="Favori">
+                        ★
+                      </button>
+                      
+                      <!-- Badge Source -->
+                      <span class={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded ${
+                        isFreeDev 
+                          ? 'bg-emerald-950 text-emerald-400 border border-emerald-800/50' 
+                          : isOsint 
+                          ? 'bg-purple-950 text-purple-400 border border-purple-800/50' 
+                          : 'bg-blue-950 text-blue-400 border border-blue-800/50'
+                      }`}>
+                        {isFreeDev ? 'Free-Dev' : isOsint ? 'OSINT' : 'Autre'}
+                      </span>
+                    </div>
                   </div>
+
+                  <h3 class="text-lg font-bold text-white group-hover:text-blue-400 transition-colors mb-2">
+                    {tool.title}
+                  </h3>
+                  
+                  <p class="text-slate-400 text-sm leading-relaxed line-clamp-3 mb-4">
+                    {tool.description || "Aucune description disponible."}
+                  </p>
                 </div>
 
-                <h3 class="text-lg font-bold text-white group-hover:text-blue-400 transition-colors mb-2">
-                  {tool.title}
-                </h3>
-                
-                <p class="text-slate-400 text-sm leading-relaxed line-clamp-3 mb-4">
-                  {tool.description || "Aucune description disponible."}
-                </p>
+                <a 
+                  href={tool.url} 
+                  target="_blank" 
+                  rel="noopener noreferrer" 
+                  class="inline-flex items-center justify-center gap-2 w-full py-2.5 px-4 rounded-xl bg-slate-800 hover:bg-blue-600 text-slate-200 hover:text-white text-sm font-semibold transition border border-slate-700/50 hover:border-blue-500"
+                >
+                  <span data-i18n="visitBtn">Visiter le site</span> ↗
+                </a>
               </div>
+            );
+          })}
+        </div>
 
-              <a 
-                href={tool.url} 
-                target="_blank" 
-                rel="noopener noreferrer" 
-                class="inline-flex items-center justify-center gap-2 w-full py-2.5 px-4 rounded-xl bg-slate-800 hover:bg-blue-600 text-slate-200 hover:text-white text-sm font-semibold transition border border-slate-700/50 hover:border-blue-500"
-              >
-                <span data-i18n="visitBtn">Visiter le site</span> ↗
-              </a>
-            </div>
-          ))}
+        <!-- Bouton Charger plus -->
+        <div class="text-center mt-10 mb-16">
+          <button 
+            id="btn-load-more" 
+            class="px-8 py-3.5 rounded-2xl bg-slate-900 hover:bg-blue-600 text-white font-semibold border border-slate-800 hover:border-blue-500 transition shadow-xl"
+          >
+            Charger plus de ressources...
+          </button>
         </div>
       </main>
 
     </div>
 
-    <!-- Script complet Engine & Interactivité -->
+    <!-- FOOTER OFFICIEL (ÉTAPE FINALE) -->
+    <footer class="w-full bg-slate-900/80 border-t border-slate-800/80 py-8 px-4 mt-auto relative z-10">
+      <div class="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4 text-xs text-slate-400">
+        <div class="flex items-center gap-2">
+          <span class="text-lg">⚡</span>
+          <span class="font-bold text-white">Dev & OSINT Vault</span>
+          <span>— Index de ressources gratuites</span>
+        </div>
+
+        <div class="flex items-center gap-6">
+          <button id="open-about-modal" class="hover:text-white transition">À propos & FAQ</button>
+          <a href="mailto:devetosint@gmail.com" class="hover:text-white transition">Contact</a>
+        </div>
+
+        <p class="text-slate-500">© 2026 Dev & OSINT Vault. Tous droits réservés.</p>
+      </div>
+    </footer>
+
+    <!-- Script complet Engine & Interactivity -->
     <script>
       import Fuse from 'fuse.js';
 
@@ -219,7 +398,7 @@ const osintCategories = [...new Set(
           allOsint: "Toutes les catégories OSINT",
           favOnly: "Favoris",
           visitBtn: "Visiter le site",
-          counterText: (count) => `Affichage de <strong class="text-white">${count}</strong> ressources`
+          counterText: (shown, total) => `Affichage de <strong class="text-white">${shown}</strong> sur <strong class="text-white">${total}</strong> ressources`
         },
         en: {
           subtitle: "Instantly find the best free resources for devs and OSINT researchers.",
@@ -229,7 +408,7 @@ const osintCategories = [...new Set(
           allOsint: "All OSINT categories",
           favOnly: "Favorites",
           visitBtn: "Visit Site",
-          counterText: (count) => `Showing <strong class="text-white">${count}</strong> resources`
+          counterText: (shown, total) => `Showing <strong class="text-white">${shown}</strong> of <strong class="text-white">${total}</strong> resources`
         },
         es: {
           subtitle: "Encuentre al instante los mejores recursos gratuitos para desarrolladores e investigadores OSINT.",
@@ -239,7 +418,7 @@ const osintCategories = [...new Set(
           allOsint: "Todas las categorías OSINT",
           favOnly: "Favoritos",
           visitBtn: "Visitar sitio",
-          counterText: (count) => `Mostrando <strong class="text-white">${count}</strong> recursos`
+          counterText: (shown, total) => `Mostrando <strong class="text-white">${shown}</strong> de <strong class="text-white">${total}</strong> recursos`
         }
       };
 
@@ -249,14 +428,124 @@ const osintCategories = [...new Set(
       let selectedCategory = 'ALL';
       let favOnly = false;
       let favorites = JSON.parse(localStorage.getItem('vault_favs') || '[]');
+      
+      // Pagination State
+      const pageSize = 30;
+      let visibleLimit = 30;
 
-      // DOM
+      // DOM Elements
       const cards = Array.from(document.querySelectorAll('.tool-card'));
       const input = document.getElementById('search-input') as HTMLInputElement;
       const counter = document.getElementById('counter');
       const favBadge = document.getElementById('fav-badge');
       const activeFilterIndicator = document.getElementById('active-filter-indicator');
       const filterNameText = document.getElementById('filter-name-text');
+      const loadMoreBtn = document.getElementById('btn-load-more');
+      const toast = document.getElementById('toast');
+      const toastMessage = document.getElementById('toast-message');
+
+      // Modal Suggest DOM
+      const modal = document.getElementById('suggest-modal');
+      const modalContainer = document.getElementById('modal-container');
+      const openModalBtn = document.getElementById('open-suggest-modal');
+      const closeModalBtn = document.getElementById('close-modal');
+      const suggestForm = document.getElementById('suggest-form') as HTMLFormElement;
+      const btnCopyJson = document.getElementById('btn-copy-json');
+
+      // Modal About DOM (LOGIQUE ÉTAPE FINALE)
+      const aboutModal = document.getElementById('about-modal');
+      const openAboutBtn = document.getElementById('open-about-modal');
+      const closeAboutBtn = document.getElementById('close-about-modal');
+
+      // Toast Helper
+      function showToast(msg) {
+        if (toast && toastMessage) {
+          toastMessage.textContent = msg;
+          toast.classList.remove('opacity-0', 'translate-y-10', 'pointer-events-none');
+          setTimeout(() => {
+            toast.classList.add('opacity-0', 'translate-y-10', 'pointer-events-none');
+          }, 2500);
+        }
+      }
+
+      // Modal Suggest Logic
+      function openModal() {
+        if (modal && modalContainer) {
+          modal.classList.remove('hidden');
+          setTimeout(() => {
+            modal.classList.remove('opacity-0');
+            modalContainer.classList.remove('scale-95');
+            modalContainer.classList.add('scale-100');
+          }, 10);
+        }
+      }
+
+      function closeModal() {
+        if (modal && modalContainer) {
+          modal.classList.add('opacity-0');
+          modalContainer.classList.remove('scale-100');
+          modalContainer.classList.add('scale-95');
+          setTimeout(() => {
+            modal.classList.add('hidden');
+          }, 200);
+        }
+      }
+
+      openModalBtn?.addEventListener('click', openModal);
+      closeModalBtn?.addEventListener('click', closeModal);
+
+      // Modal About Logic (GESTION DU DÉCLENCHEMENT DU FOOTER)
+      openAboutBtn?.addEventListener('click', () => {
+        aboutModal?.classList.remove('hidden');
+        setTimeout(() => aboutModal?.classList.remove('opacity-0'), 10);
+      });
+      closeAboutBtn?.addEventListener('click', () => {
+        aboutModal?.classList.add('opacity-0');
+        setTimeout(() => aboutModal?.classList.add('hidden'), 200);
+      });
+
+      // Form Submission -> Mailto vers devetosint@gmail.com
+      suggestForm?.addEventListener('submit', (e) => {
+        e.preventDefault();
+        const title = (document.getElementById('suggest-name') as HTMLInputElement).value;
+        const url = (document.getElementById('suggest-url') as HTMLInputElement).value;
+        const source = (document.getElementById('suggest-source') as HTMLSelectElement).value;
+        const category = (document.getElementById('suggest-cat') as HTMLInputElement).value;
+        const description = (document.getElementById('suggest-desc') as HTMLTextAreaElement).value;
+
+        const mailBody = `Nouvel outil proposé pour Dev & OSINT Vault :\n\n` +
+                         `Titre : ${title}\n` +
+                         `URL : ${url}\n` +
+                         `Source : ${source}\n` +
+                         `Catégorie : ${category}\n` +
+                         `Description : ${description}\n`;
+
+        window.location.href = `mailto:devetosint@gmail.com?subject=Suggestion Outil: ${encodeURIComponent(title)}&body=${encodeURIComponent(mailBody)}`;
+        showToast("Ouverture de votre client mail...");
+        closeModal();
+        suggestForm.reset();
+      });
+
+      // Copy JSON format
+      btnCopyJson?.addEventListener('click', () => {
+        const title = (document.getElementById('suggest-name') as HTMLInputElement).value || "Nom";
+        const url = (document.getElementById('suggest-url') as HTMLInputElement).value || "https://...";
+        const source = (document.getElementById('suggest-source') as HTMLSelectElement).value;
+        const category = (document.getElementById('suggest-cat') as HTMLInputElement).value || "Categorie";
+        const description = (document.getElementById('suggest-desc') as HTMLTextAreaElement).value;
+
+        const jsonSnippet = JSON.stringify({
+          title,
+          url,
+          source,
+          category,
+          description
+        }, null, 2);
+
+        navigator.clipboard.writeText(jsonSnippet).then(() => {
+          showToast("Extrait JSON copié dans le presse-papier !");
+        });
+      });
 
       // Fuse Engine
       const toolsData = cards.map((card, index) => ({
@@ -264,7 +553,8 @@ const osintCategories = [...new Set(
         title: card.getAttribute('data-title') || '',
         desc: card.getAttribute('data-desc') || '',
         cat: card.getAttribute('data-cat') || '',
-        source: card.getAttribute('data-source') || ''
+        source: card.getAttribute('data-source') || '',
+        url: card.getAttribute('data-url') || ''
       }));
 
       const fuse = new Fuse(toolsData, {
@@ -273,38 +563,42 @@ const osintCategories = [...new Set(
         ignoreLocation: true
       });
 
-      // Filter Logic
+      // Filter & Render Logic
       function filterTools() {
         const query = input.value.trim();
         let validIndices = toolsData.map(t => t.index);
 
-        if (query) {
-          validIndices = fuse.search(query).map(r => r.item.index);
-        }
+        if (query) validIndices = fuse.search(query).map(r => r.item.index);
+        if (selectedSource !== 'ALL') validIndices = validIndices.filter(idx => toolsData[idx].source === selectedSource);
+        if (selectedCategory !== 'ALL') validIndices = validIndices.filter(idx => toolsData[idx].cat === selectedCategory);
+        if (favOnly) validIndices = validIndices.filter(idx => favorites.includes(idx.toString()));
 
-        if (selectedSource !== 'ALL') {
-          validIndices = validIndices.filter(idx => toolsData[idx].source === selectedSource);
-        }
+        const totalMatching = validIndices.length;
+        let displayedCount = 0;
 
-        if (selectedCategory !== 'ALL') {
-          validIndices = validIndices.filter(idx => toolsData[idx].cat === selectedCategory);
-        }
-
-        if (favOnly) {
-          validIndices = validIndices.filter(idx => favorites.includes(idx.toString()));
-        }
-
-        let visibleCount = 0;
         cards.forEach((card, idx) => {
           if (validIndices.includes(idx)) {
-            card.classList.remove('hidden');
-            visibleCount++;
+            displayedCount++;
+            if (displayedCount <= visibleLimit) {
+              card.classList.remove('hidden');
+            } else {
+              card.classList.add('hidden');
+            }
           } else {
             card.classList.add('hidden');
           }
         });
 
-        if (counter) counter.innerHTML = i18n[currentLang].counterText(visibleCount);
+        // Toggle "Charger plus" button
+        if (loadMoreBtn) {
+          if (totalMatching > visibleLimit) {
+            loadMoreBtn.classList.remove('hidden');
+          } else {
+            loadMoreBtn.classList.add('hidden');
+          }
+        }
+
+        if (counter) counter.innerHTML = i18n[currentLang].counterText(Math.min(displayedCount, visibleLimit), totalMatching);
 
         // Update Indicator
         if (selectedCategory !== 'ALL' || selectedSource !== 'ALL' || favOnly) {
@@ -316,12 +610,21 @@ const osintCategories = [...new Set(
         }
       }
 
-      // Event Listeners
-      input?.addEventListener('input', filterTools);
+      // Events
+      input?.addEventListener('input', () => {
+        visibleLimit = pageSize;
+        filterTools();
+      });
+
+      loadMoreBtn?.addEventListener('click', () => {
+        visibleLimit += pageSize;
+        filterTools();
+      });
 
       document.querySelectorAll('.nav-filter-btn').forEach(btn => {
         btn.addEventListener('click', () => {
           favOnly = false;
+          visibleLimit = pageSize;
           selectedSource = btn.getAttribute('data-source') || 'ALL';
           selectedCategory = btn.getAttribute('data-cat') || 'ALL';
           filterTools();
@@ -331,13 +634,27 @@ const osintCategories = [...new Set(
       document.getElementById('btn-reset')?.addEventListener('click', (e) => {
         e.preventDefault();
         favOnly = false;
+        visibleLimit = pageSize;
         selectedSource = 'ALL';
         selectedCategory = 'ALL';
         input.value = '';
         filterTools();
       });
 
-      // Favorites
+      // Copier le lien
+      document.querySelectorAll('.copy-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          const url = btn.getAttribute('data-url');
+          if (!url) return;
+
+          navigator.clipboard.writeText(url).then(() => {
+            showToast("Lien copié dans le presse-papier !");
+          });
+        });
+      });
+
+      // Favorites Logic
       function updateFavIcons() {
         if (favBadge) favBadge.textContent = favorites.length.toString();
         document.querySelectorAll('.fav-btn').forEach(btn => {
@@ -372,7 +689,42 @@ const osintCategories = [...new Set(
 
       document.getElementById('btn-fav-toggle')?.addEventListener('click', () => {
         favOnly = !favOnly;
+        visibleLimit = pageSize;
         filterTools();
+      });
+
+      // Export Favoris (format TXT structuré)
+      document.getElementById('btn-export-fav')?.addEventListener('click', () => {
+        if (favorites.length === 0) {
+          showToast("Aucun favori à exporter !");
+          return;
+        }
+
+        const favTools = toolsData.filter(t => favorites.includes(t.index.toString()));
+
+        let txtContent = "=========================================\n";
+        txtContent += "       DEV & OSINT VAULT - FAVORIS       \n";
+        txtContent += "=========================================\n\n";
+
+        favTools.forEach((tool, i) => {
+          txtContent += `${i + 1}. ${tool.title}\n`;
+          txtContent += `   Catégorie : ${tool.cat} [${tool.source === 'free_for_dev' ? 'Free Dev' : 'OSINT'}]\n`;
+          txtContent += `   Lien       : ${tool.url}\n`;
+          if (tool.desc) txtContent += `   Description: ${tool.desc}\n`;
+          txtContent += "\n-----------------------------------------\n\n";
+        });
+
+        const blob = new Blob([txtContent], { type: 'text/plain;charset=utf-8' });
+        const url = URL.createObjectURL(blob);
+        const downloadAnchor = document.createElement('a');
+        downloadAnchor.setAttribute("href", url);
+        downloadAnchor.setAttribute("download", "vault_favoris.txt");
+        document.body.appendChild(downloadAnchor);
+        downloadAnchor.click();
+        downloadAnchor.remove();
+        URL.revokeObjectURL(url);
+
+        showToast(`${favorites.length} favoris exportés en .txt !`);
       });
 
       // i18n Language Switcher
@@ -404,6 +756,7 @@ const osintCategories = [...new Set(
 
       // Init
       updateFavIcons();
+      filterTools();
     </script>
   </body>
 </html>
