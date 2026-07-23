@@ -1,1 +1,33 @@
 @import "tailwindcss";
+/* Thème par défaut (Dark Slate) */
+:root, [data-theme="slate"] {
+  --bg-main: #0f172a;
+  --bg-card: #1e293b;
+  --border-color: #334155;
+  --text-main: #f8fafc;
+  --accent: #38bdf8;
+}
+
+/* Thème Cyberpunk / Neon */
+[data-theme="cyberpunk"] {
+  --bg-main: #0d0221;
+  --bg-card: #190938;
+  --border-color: #ff007f;
+  --text-main: #00f6ff;
+  --accent: #ff007f;
+}
+
+/* Thème Nord (Serein / Nordique) */
+[data-theme="nord"] {
+  --bg-main: #2e3440;
+  --bg-card: #3b4252;
+  --border-color: #4c566a;
+  --text-main: #eceff4;
+  --accent: #88c0d0;
+}
+
+body {
+  background-color: var(--bg-main);
+  color: var(--text-main);
+  transition: background-color 0.3s, color 0.3s;
+}

@@ -1,0 +1,51 @@
+---
+import Layout from '../../layouts/Layout.astro';
+import rawTools from '../../data/tools.json';
+import { ToolSchema, type Tool } from '../../schemas/tool';
+
+export async function getStaticPaths() {
+  return rawTools.map((tool, index) => {
+    // Génère un ID basé sur le titre ou l'index si non défini
+    const slug = tool.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '') || String(index);
+    return {
+      params: { id: slug },
+      props: { tool: { ...tool, id: slug } },
+    };
+  });
+}
+
+const { tool } = Astro.props;
+const validatedTool = ToolSchema.parse(tool);
+---
+
+<Layout title={`${validatedTool.title} - Dev & OSINT Vault`}>
+  <main class="max-w-4xl mx-auto px-4 py-12 text-slate-100">
+    <a href="/" class="text-xs text-sky-400 hover:underline mb-6 inline-block">← Retour au répertoire</a>
+    
+    <div class="bg-slate-900 border border-slate-800 rounded-xl p-8 shadow-2xl">
+      <div class="flex justify-between items-start mb-4">
+        <h1 class="text-3xl font-bold text-white">{validatedTool.title}</h1>
+        <span class="px-3 py-1 bg-sky-500/10 text-sky-400 text-xs rounded-full border border-sky-500/20">
+          {validatedTool.category}
+        </span>
+      </div>
+
+      <p class="text-slate-300 text-lg mb-6">{validatedTool.description}</p>
+
+      <div class="flex flex-wrap gap-2 mb-8">
+        <span class="bg-slate-800 text-slate-300 text-xs px-2.5 py-1 rounded">🏷️ {validatedTool.pricing}</span>
+        {validatedTool.isCli && <span class="bg-purple-500/10 text-purple-400 text-xs px-2.5 py-1 rounded">💻 CLI Tool</span>}
+        {validatedTool.needsApiKey && <span class="bg-amber-500/10 text-amber-400 text-xs px-2.5 py-1 rounded">🔑 Clé API requise</span>}
+      </div>
+
+      <a 
+        href={validatedTool.url} 
+        target="_blank" 
+        rel="noopener noreferrer"
+        class="inline-flex items-center gap-2 bg-sky-600 hover:bg-sky-500 text-white font-medium px-6 py-3 rounded-lg transition-colors"
+      >
+        Visiter l'outil 🚀
+      </a>
+    </div>
+  </main>
+</Layout>

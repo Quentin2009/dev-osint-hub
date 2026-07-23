@@ -1,939 +1,423 @@
 ---
+// Importation du CSS Tailwind
 import '../styles/global.css';
+
+// Importation des données
 import toolsData from '../data/tools.json';
 
-// Nettoyage des caractères Markdown parasites
-const cleanText = (str) => {
-  if (!str) return '';
-  return str.replace(/\[↑\]\([^)]+\)/g, '').trim();
+// Fonction de nettoyage pour supprimer les artefacts Markdown [↑](#-table-of-contents)
+const sanitizeText = (txt: string) => {
+  if (!txt) return '';
+  return txt
+    .replace(/\[↑\]\(#-table-of-contents\)/gi, '')
+    .replace(/\[↑\]\(#.*?\)/gi, '')
+    .replace(/\[\^.*?\]/g, '')
+    .replace(/\[(.*?)\]\(.*?\)/g, '$1')
+    .trim();
 };
 
-// Enrichissement automatique des outils (Tags, Modèle économique, Clé API, Cheat Sheet)
-const enrichedTools = toolsData.map((tool, index) => {
-  const cat = cleanText(tool.category).toLowerCase();
-  const desc = (tool.description || '').toLowerCase();
-  const url = (tool.url || '').toLowerCase();
-  const title = tool.title || '';
-
-  // Heuristiques de catégorisation technique
-  const isCli = cat.includes('cli') || cat.includes('terminal') || desc.includes('command line') || desc.includes('python');
-  const isGithub = url.includes('github.com') || url.includes('gitlab.com');
-  const requiresApi = desc.includes('api key') || desc.includes('clé api') || desc.includes('token') || desc.includes('shodan');
-
-  // Modèle économique
-  let pricing = 'Gratuit';
-  if (isGithub) pricing = 'Open Source';
-  else if (desc.includes('freemium') || desc.includes('free tier')) pricing = 'Freemium';
-
-  // Type d'application
-  let appType = isCli ? 'CLI / Terminal' : 'Web App';
-
-  // Aide-mémoire / Flags CLI générés
-  const cleanTitle = title.toLowerCase().replace(/[^a-z0-9]/g, '');
-  let cheatSheet = isCli
-    ? `${cleanTitle} --help\n${cleanTitle} -u target_user --output json`
-    : `curl -s "${tool.url}" | grep "status"`;
-
+// Enrichissement et nettoyage des données côté serveur Astro
+const enrichedTools = toolsData.map((tool: any, index: number) => {
+  const rawDesc = tool.description || tool.safeDesc || 'Pas de description disponible.';
   return {
-    ...tool,
-    id: index,
-    cleanCategory: cleanText(tool.category),
-    safeDesc: tool.description || "Aucune description disponible.",
-    pricing,
-    appType,
-    requiresApi,
-    cheatSheet
+    id: tool.id || index + 1,
+    title: sanitizeText(tool.title || tool.name || 'Outil sans nom'),
+    url: tool.url || '#',
+    source: tool.source || 'free_for_dev',
+    cleanCategory: sanitizeText(tool.category || tool.cleanCategory || 'Général'),
+    pricing: tool.pricing || 'Gratuit',
+    safeDesc: sanitizeText(rawDesc),
+    requiresApi: tool.requiresApi || false,
+    cheatSheet: tool.cheatSheet || '',
+    appType: tool.appType || 'Web',
   };
 });
 
-// Statistiques globales du Vault
-const totalTools = enrichedTools.length;
-const freeDevTools = enrichedTools.filter(i => i.source === 'free_for_dev');
-const osintTools = enrichedTools.filter(i => i.source === 'awesome_osint');
+// Statistiques générales
+const totalCount = enrichedTools.length;
+const freeDevTools = enrichedTools.filter((t: any) => t.source === 'free_for_dev');
+const osintTools = enrichedTools.filter((t: any) => t.source === 'awesome_osint');
 
 const freeDevCount = freeDevTools.length;
 const osintCount = osintTools.length;
+const categoriesCount = new Set(enrichedTools.map((t: any) => t.cleanCategory)).size;
 
-// Calcul des pourcentages
-const freeDevPercent = Math.round((freeDevCount / totalTools) * 100);
-const osintPercent = Math.round((osintCount / totalTools) * 100);
+const freeDevPct = Math.round((freeDevCount / totalCount) * 100) || 0;
+const osintPct = Math.round((osintCount / totalCount) * 100) || 0;
 
-// Catégories uniques
-const freeDevCategories = [...new Set(freeDevTools.map(i => i.cleanCategory))].filter(Boolean).sort();
-const osintCategories = [...new Set(osintTools.map(i => i.cleanCategory))].filter(Boolean).sort();
-const allCategoriesCount = [...new Set(enrichedTools.map(i => i.cleanCategory))].filter(Boolean).length;
+// Listes distinctes de catégories pour les menus déroulants
+const freeDevCategories = [...new Set(freeDevTools.map((t: any) => t.cleanCategory))].sort();
+const osintCategories = [...new Set(osintTools.map((t: any) => t.cleanCategory))].sort();
 ---
 
+<!DOCTYPE html>
 <html lang="fr" class="dark">
   <head>
-    <meta charset="utf-8" />
-    <title>Dev & OSINT Vault - Répertoire Ultime de Ressources</title>
+    <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="description" content="Répertoire de ressources gratuites pour développeurs et chercheurs OSINT." />
-    
-    <!-- PWA Manifest & Theme -->
-    <link rel="manifest" href="/manifest.json" />
-    <meta name="theme-color" content="#0f172a" />
-
-    <!-- Open Graph -->
-    <meta property="og:type" content="website" />
-    <meta property="og:title" content="Dev & OSINT Vault" />
-    <meta property="og:description" content="Répertoire ultime de ressources pour devs et OSINT." />
-
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet">
-
-    <style>
-      body.view-list #tools-grid {
-        display: flex !important;
-        flex-direction: column !important;
-        gap: 0.75rem !important;
-      }
-      body.view-list .tool-card {
-        flex-direction: row !important;
-        align-items: center !important;
-        justify-content: space-between !important;
-        padding: 0.85rem 1.25rem !important;
-      }
-      body.view-list .tool-card > div:first-child {
-        flex: 1;
-        margin-right: 1.5rem;
-      }
-      body.view-list .tool-card .card-desc {
-        -webkit-line-clamp: 1 !important;
-        margin-bottom: 0 !important;
-      }
-      body.view-list .tool-card .visit-btn {
-        width: auto !important;
-        padding: 0.5rem 1rem !important;
-        white-space: nowrap;
-      }
-      kbd {
-        box-shadow: inset 0 -1px 0 rgba(255, 255, 255, 0.2);
-      }
-    </style>
+    <title>Dev & OSINT Vault</title>
+    <link rel="icon" type="image/svg+xml" href="/favicon.ico" />
   </head>
-  <body class="bg-slate-950 text-slate-100 min-h-screen font-['Inter',sans-serif] antialiased pt-20 selection:bg-blue-500 selection:text-white flex flex-col justify-between">
-    
-    <!-- Background Ambient Gradient -->
-    <div class="fixed inset-0 bg-[radial-gradient(ellipse_80%_80%_at_50%_-20%,rgba(59,130,246,0.15),rgba(255,255,255,0))] pointer-events-none"></div>
+  <body class="bg-[#090d16] text-slate-100 min-h-screen font-sans antialiased selection:bg-blue-500 selection:text-white">
 
-    <!-- Notification Toast -->
-    <div id="toast" class="fixed bottom-5 left-1/2 -translate-x-1/2 z-50 bg-slate-800 text-white px-5 py-3 rounded-full shadow-2xl font-semibold text-sm transition-all duration-300 opacity-0 translate-y-10 pointer-events-none flex items-center gap-2 border border-slate-700">
-      <span id="toast-icon">✅</span> <span id="toast-message">Action réussie !</span>
-    </div>
-
-    <!-- BOUTON RETOUR EN HAUT -->
-    <button id="back-to-top" class="fixed bottom-8 right-8 z-40 bg-blue-600 text-white p-3.5 rounded-full shadow-lg shadow-blue-900/50 opacity-0 pointer-events-none transition-all duration-300 hover:bg-blue-500 hover:-translate-y-1" title="Retour en haut">
-      <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 15l7-7 7 7"></path></svg>
-    </button>
-
-    <!-- PALETTE DE COMMANDE (CTRL + K) -->
-    <div id="command-palette" class="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-md hidden opacity-0 transition-opacity duration-200 flex items-start justify-center pt-20 px-4">
-      <div class="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-xl shadow-2xl overflow-hidden relative transform scale-95 transition-transform duration-200">
-        <div class="p-4 border-b border-slate-800 flex items-center gap-3">
-          <span class="text-slate-400">⚡</span>
-          <input type="text" id="palette-input" placeholder="Tapez une commande ou un outil..." class="w-full bg-transparent text-white focus:outline-none text-sm placeholder-slate-500 font-medium" />
-          <kbd class="text-[10px] bg-slate-800 border border-slate-700 text-slate-400 px-2 py-0.5 rounded font-mono">ESC</kbd>
-        </div>
-        <div class="p-2 max-h-80 overflow-y-auto divide-y divide-slate-800/50" id="palette-results">
-          <!-- Actions Rapides -->
-          <div class="p-2 text-[10px] font-bold uppercase tracking-wider text-slate-500">Actions système</div>
-          <button class="palette-item w-full text-left px-3 py-2 rounded-xl text-sm text-slate-200 hover:bg-blue-600 hover:text-white flex items-center justify-between transition" data-action="random">
-            <span>🎲 Tirer un outil au hasard</span>
-            <kbd class="text-[10px] bg-slate-950 px-1.5 py-0.5 rounded text-slate-400 font-mono">R</kbd>
-          </button>
-          <button class="palette-item w-full text-left px-3 py-2 rounded-xl text-sm text-slate-200 hover:bg-blue-600 hover:text-white flex items-center justify-between transition" data-action="favs">
-            <span>⭐ Afficher mes favoris</span>
-            <span class="text-xs text-slate-400">Filtre</span>
-          </button>
-          <button class="palette-item w-full text-left px-3 py-2 rounded-xl text-sm text-slate-200 hover:bg-blue-600 hover:text-white flex items-center justify-between transition" data-action="export-md">
-            <span>📤 Exporter mes favoris (.md)</span>
-            <span class="text-xs text-slate-400">Download</span>
-          </button>
-          <button class="palette-item w-full text-left px-3 py-2 rounded-xl text-sm text-slate-200 hover:bg-blue-600 hover:text-white flex items-center justify-between transition" data-action="share-stack">
-            <span>🔗 Copier le lien de ma sélection</span>
-            <span class="text-xs text-slate-400">URL</span>
-          </button>
-        </div>
-      </div>
-    </div>
-
-    <!-- MODALE FICHE DÉTAILLÉE DE L'OUTIL -->
-    <div id="details-modal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md hidden opacity-0 transition-opacity duration-200">
-      <div class="bg-slate-900 border border-slate-800 rounded-3xl p-6 sm:p-8 w-full max-w-2xl shadow-2xl relative transform scale-95 transition-transform duration-200 max-h-[90vh] overflow-y-auto scrollbar-thin">
+    <!-- NAVBAR SUPÉRIEURE AVEC MENUS DÉROULANTS -->
+    <header class="w-full border-b border-slate-800/80 bg-[#090d16]/90 backdrop-blur-md sticky top-0 z-40">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-4">
         
-        <button id="close-details-modal" class="absolute top-5 right-5 text-slate-400 hover:text-white text-xl transition bg-slate-800 hover:bg-slate-700 w-8 h-8 rounded-full flex items-center justify-center">✕</button>
+        <!-- LOGO -->
+        <a href="/" class="flex items-center gap-2 font-bold text-xl text-white tracking-tight">
+          <span class="text-amber-500 text-2xl">⚡</span>
+          <span>Vault<span class="text-cyan-400">.dev</span></span>
+        </a>
 
-        <!-- En-tête Modale -->
-        <div class="flex items-start gap-4 mb-4">
-          <div class="p-3 bg-blue-500/10 border border-blue-500/20 rounded-2xl text-2xl">
-            🛠️
-          </div>
-          <div class="pr-6">
-            <div class="flex flex-wrap items-center gap-2 mb-1">
-              <span id="modal-source-badge" class="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded"></span>
-              <span id="modal-cat-badge" class="text-[11px] font-semibold px-2.5 py-0.5 rounded-md bg-slate-800 text-slate-300 border border-slate-700/50"></span>
-              <span id="modal-pricing-badge" class="text-[10px] font-bold px-2 py-0.5 rounded bg-emerald-950 text-emerald-400 border border-emerald-800/50"></span>
-              <span id="modal-api-badge" class="text-[10px] font-bold px-2 py-0.5 rounded bg-amber-950 text-amber-400 border border-amber-800/50 hidden">🔑 API Requise</span>
-            </div>
-            <h2 id="modal-title" class="text-2xl sm:text-3xl font-extrabold text-white"></h2>
-          </div>
-        </div>
-
-        <!-- Description -->
-        <p id="modal-desc" class="text-slate-300 text-sm sm:text-base leading-relaxed mb-6 bg-slate-950/60 p-4 rounded-2xl border border-slate-800/80"></p>
-
-        <!-- Terminal & Cheat Sheet -->
-        <div class="mb-6 space-y-3">
-          <div>
-            <div class="flex justify-between items-center mb-1.5">
-              <span class="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
-                <span>💻</span> Commande d'installation / rapide
-              </span>
-              <button id="btn-copy-command" class="text-xs text-blue-400 hover:text-blue-300 font-semibold flex items-center gap-1 transition">
-                <span>📋</span> Copier
-              </button>
-            </div>
-            <div class="bg-slate-950 border border-slate-800 rounded-2xl p-3.5 font-mono text-xs text-emerald-400 overflow-x-auto">
-              <code id="modal-command"></code>
-            </div>
-          </div>
-
-          <div>
-            <div class="flex justify-between items-center mb-1.5">
-              <span class="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
-                <span>⚡</span> Aide-mémoire / Options utiles (Cheat Sheet)
-              </span>
-            </div>
-            <div class="bg-slate-950 border border-slate-800 rounded-2xl p-3.5 font-mono text-xs text-slate-300 overflow-x-auto whitespace-pre">
-              <code id="modal-cheatsheet"></code>
-            </div>
-          </div>
-        </div>
-
-        <!-- Outils Similaires -->
-        <div class="mb-8">
-          <h4 class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">
-            💡 Outils similaires dans cette catégorie
-          </h4>
-          <div id="modal-alternatives" class="flex flex-wrap gap-2"></div>
-        </div>
-
-        <!-- Actions -->
-        <div class="flex items-center justify-between gap-3 pt-4 border-t border-slate-800">
-          <button id="modal-fav-btn" class="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold text-xs sm:text-sm transition border border-slate-700">
-            <span>★</span> Favori
+        <!-- NAVIGATION CENTRALE -->
+        <nav class="hidden md:flex items-center gap-6 text-sm font-medium text-slate-300">
+          <button data-source="ALL" data-cat="ALL" class="nav-filter-btn hover:text-white transition">
+            Tout afficher
           </button>
-          <a id="modal-visit-btn" href="#" target="_blank" rel="noopener noreferrer" class="flex-1 bg-blue-600 hover:bg-blue-500 text-white font-bold py-2.5 px-5 rounded-xl text-xs sm:text-sm transition flex items-center justify-center gap-1.5 shadow-lg shadow-blue-600/30">
-            Visiter le site officiel ↗
-          </a>
+
+          <!-- MENU DÉROULANT FREE DEV -->
+          <div class="relative group">
+            <button data-source="free_for_dev" data-cat="ALL" class="nav-filter-btn flex items-center gap-1.5 hover:text-white transition py-2">
+              <span class="w-2 h-2 rounded-full bg-emerald-400 inline-block"></span>
+              Free Dev <span class="text-xs opacity-60">▾</span>
+            </button>
+            <div class="absolute top-full left-0 hidden group-hover:block group-focus-within:block w-64 bg-slate-900 border border-slate-800 rounded-xl shadow-2xl p-2 z-50 max-h-80 overflow-y-auto">
+              <button data-source="free_for_dev" data-cat="ALL" class="nav-filter-btn w-full text-left px-3 py-1.5 rounded-lg text-xs hover:bg-slate-800 text-emerald-400 font-semibold mb-1">
+                Tous les outils Free Dev
+              </button>
+              <div class="border-t border-slate-800 my-1"></div>
+              {freeDevCategories.map((cat: string) => (
+                <button data-source="free_for_dev" data-cat={cat} class="nav-filter-btn w-full text-left px-3 py-1.5 rounded-lg text-xs hover:bg-slate-800 text-slate-300 transition truncate block">
+                  {cat}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <!-- MENU DÉROULANT OSINT -->
+          <div class="relative group">
+            <button data-source="awesome_osint" data-cat="ALL" class="nav-filter-btn flex items-center gap-1.5 hover:text-white transition py-2">
+              <span class="w-2 h-2 rounded-full bg-purple-400 inline-block"></span>
+              OSINT <span class="text-xs opacity-60">▾</span>
+            </button>
+            <div class="absolute top-full left-0 hidden group-hover:block group-focus-within:block w-64 bg-slate-900 border border-slate-800 rounded-xl shadow-2xl p-2 z-50 max-h-80 overflow-y-auto">
+              <button data-source="awesome_osint" data-cat="ALL" class="nav-filter-btn w-full text-left px-3 py-1.5 rounded-lg text-xs hover:bg-slate-800 text-purple-400 font-semibold mb-1">
+                Tous les outils OSINT
+              </button>
+              <div class="border-t border-slate-800 my-1"></div>
+              {osintCategories.map((cat: string) => (
+                <button data-source="awesome_osint" data-cat={cat} class="nav-filter-btn w-full text-left px-3 py-1.5 rounded-lg text-xs hover:bg-slate-800 text-slate-300 transition truncate block">
+                  {cat}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <button id="btn-fav-toggle" class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-900 border border-slate-800 text-amber-400 hover:bg-slate-800 transition text-xs font-semibold">
+            ⭐ Favoris <span id="fav-badge" class="px-1.5 py-0.5 rounded-full bg-amber-500/20 text-amber-300">0</span>
+          </button>
+        </nav>
+
+        <!-- BOUTONS DROITE -->
+        <div class="flex items-center gap-3">
+          <button id="btn-surprise-nav" class="px-3 py-2 text-xs font-semibold text-slate-200 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-xl transition flex items-center gap-1.5" title="Découvrir un outil au hasard">
+            <span>🎲</span> <span class="hidden sm:inline">Surprenez-moi !</span>
+          </button>
+          <button id="open-suggest-modal" class="px-4 py-2 text-sm font-semibold text-white bg-blue-600 hover:bg-blue-500 rounded-xl shadow-lg shadow-blue-600/30 transition flex items-center gap-2">
+            <span>+</span> Suggérer
+          </button>
+        </div>
+      </div>
+    </header>
+
+    <!-- MAIN CONTENT -->
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-8 pb-16">
+
+      <!-- HERO & STATS -->
+      <section class="pt-6 pb-10 text-center max-w-4xl mx-auto">
+        <h1 class="text-4xl sm:text-5xl lg:text-6xl font-extrabold tracking-tight text-white mb-4">
+          Dev & OSINT <span class="bg-gradient-to-r from-teal-300 via-cyan-400 to-blue-400 bg-clip-text text-transparent">Vault</span>
+        </h1>
+        <p class="text-slate-400 text-base sm:text-lg mb-8 max-w-2xl mx-auto">
+          Trouvez instantanément les meilleures ressources gratuites pour devs et chercheurs OSINT.
+        </p>
+
+        <!-- BARRE DE RECHERCHE -->
+        <div class="max-w-2xl mx-auto relative mb-10">
+          <input
+            type="text"
+            id="search-input"
+            placeholder="🔍 Rechercher un outil (ex: github, geoloc, cyber)..."
+            class="w-full pl-5 pr-16 py-3.5 rounded-2xl bg-slate-900/90 border border-slate-800 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 transition shadow-xl text-sm sm:text-base"
+          />
+          <button id="trigger-palette" class="absolute right-3 top-3 px-2 py-1 text-xs font-mono bg-slate-800 hover:bg-slate-700 text-slate-400 border border-slate-700 rounded-lg transition hidden sm:inline-block cursor-pointer" title="Raccourci de recherche">
+            ⌘K
+          </button>
         </div>
 
+        <!-- STATISTIQUES -->
+        <div class="bg-slate-900/40 border border-slate-800/80 rounded-2xl p-6 shadow-2xl backdrop-blur-sm">
+          <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+            <div class="bg-slate-900/80 border border-slate-800/90 rounded-xl p-4 text-center">
+              <div id="counter-num" class="text-3xl font-extrabold text-white mb-1">{totalCount}</div>
+              <div class="text-xs font-medium text-slate-400 uppercase tracking-wider">Ressources Total</div>
+            </div>
+            <div class="bg-emerald-950/20 border border-emerald-900/40 rounded-xl p-4 text-center">
+              <div class="text-3xl font-extrabold text-emerald-400 mb-1">{freeDevCount}</div>
+              <div class="text-xs font-medium text-emerald-400/80 uppercase tracking-wider">Free Dev</div>
+            </div>
+            <div class="bg-purple-950/20 border border-purple-900/40 rounded-xl p-4 text-center">
+              <div class="text-3xl font-extrabold text-purple-400 mb-1">{osintCount}</div>
+              <div class="text-xs font-medium text-purple-400/80 uppercase tracking-wider">OSINT</div>
+            </div>
+            <div class="bg-slate-900/80 border border-slate-800/90 rounded-xl p-4 text-center">
+              <div class="text-3xl font-extrabold text-slate-200 mb-1">{categoriesCount}</div>
+              <div class="text-xs font-medium text-slate-400 uppercase tracking-wider">Catégories</div>
+            </div>
+          </div>
+
+          <!-- BARRE DE RÉPARTITION -->
+          <div class="space-y-2">
+            <div class="flex justify-between text-xs font-semibold px-1">
+              <span class="text-emerald-400">Free Dev ({freeDevPct}%)</span>
+              <span class="text-purple-400">OSINT ({osintPct}%)</span>
+            </div>
+            <div class="h-2 w-full bg-slate-950 rounded-full overflow-hidden flex p-0.5 border border-slate-800">
+              <div class="bg-emerald-400 h-full rounded-l-full" style={`width: ${freeDevPct}%`}></div>
+              <div class="bg-purple-500 h-full rounded-r-full" style={`width: ${osintPct}%`}></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- FILTRES RAPIDES ET TRI -->
+      <div class="flex flex-col md:flex-row gap-4 items-start md:items-center justify-between mb-8">
+        <div class="flex items-center gap-2 flex-wrap">
+          <button data-source="ALL" data-cat="ALL" class="quick-chip active px-3.5 py-1.5 rounded-lg text-xs font-medium bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 transition">
+            Tous les outils
+          </button>
+          <button data-source="free_for_dev" data-cat="ALL" class="quick-chip px-3.5 py-1.5 rounded-lg text-xs font-medium bg-slate-900 hover:bg-slate-800 border border-slate-800 text-slate-400 transition">
+            💻 Free Dev
+          </button>
+          <button data-source="awesome_osint" data-cat="ALL" class="quick-chip px-3.5 py-1.5 rounded-lg text-xs font-medium bg-slate-900 hover:bg-slate-800 border border-slate-800 text-slate-400 transition">
+            🕵️ OSINT
+          </button>
+          <button id="btn-surprise-hero" class="px-3.5 py-1.5 rounded-lg text-xs font-medium bg-purple-900/30 hover:bg-purple-900/50 border border-purple-700/50 text-purple-300 transition flex items-center gap-1">
+            🎲 Surprenez-moi !
+          </button>
+        </div>
+
+        <div class="flex items-center gap-3 w-full md:w-auto justify-end">
+          <select id="sort-select" class="bg-slate-900 border border-slate-800 text-slate-300 text-xs rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
+            <option value="default">Tri par défaut</option>
+            <option value="az">Nom (A ➔ Z)</option>
+            <option value="za">Nom (Z ➔ A)</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- BANDEAU FILTRE ACTIF -->
+      <div id="active-filter-indicator" class="hidden mb-6 flex items-center justify-between p-3 bg-blue-950/40 border border-blue-800/40 rounded-xl text-xs text-blue-300">
+        <span>Filtre actif : <strong id="filter-name-text"></strong></span>
+        <button id="reset-filter-btn" class="underline hover:text-white">Réinitialiser</button>
+      </div>
+
+      <!-- GRILLAGE DES CARTES -->
+      <div id="tools-grid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        {enrichedTools.map((tool: any) => (
+          <div
+            class="tool-card group relative flex flex-col justify-between p-5 bg-slate-900/60 hover:bg-slate-900 border border-slate-800/80 hover:border-slate-700 rounded-2xl transition duration-200 shadow-sm hover:shadow-md cursor-pointer"
+            data-id={tool.id}
+            data-source={tool.source}
+            data-cat={tool.cleanCategory}
+            data-title={tool.title}
+          >
+            <div>
+              <div class="flex items-start justify-between gap-3 mb-3">
+                <span class="text-xs font-mono px-2.5 py-0.5 rounded-full bg-slate-800 text-slate-400 border border-slate-700/50">
+                  {tool.cleanCategory}
+                </span>
+                <div class="flex items-center gap-1">
+                  <button class="fav-btn p-1 hover:text-yellow-400 text-slate-600 transition" data-id={tool.id} title="Ajouter aux favoris">
+                    ⭐
+                  </button>
+                  <button class="copy-btn p-1 hover:text-blue-400 text-slate-600 transition" data-url={tool.url} title="Copier le lien">
+                    🔗
+                  </button>
+                </div>
+              </div>
+
+              <h3 class="font-semibold text-slate-100 text-base group-hover:text-blue-400 transition mb-2">
+                {tool.title}
+              </h3>
+              <p class="text-xs text-slate-400 line-clamp-2 mb-4 leading-relaxed">
+                {tool.safeDesc}
+              </p>
+            </div>
+
+            <div class="flex items-center justify-between pt-3 border-t border-slate-800/60 text-xs">
+              <span class="text-slate-500 font-mono">{tool.pricing}</span>
+              <a
+                href={tool.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                class="visit-btn px-3 py-1 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-lg border border-slate-700/60 transition"
+              >
+                Visiter ↗
+              </a>
+            </div>
+          </div>
+        ))}
+      </div>
+    </main>
+
+    <!-- MODALE DETAILS OUTIL COMPLET -->
+    <div id="details-modal" class="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-md hidden opacity-0 transition-opacity duration-200 flex items-center justify-center p-4">
+      <div class="bg-slate-900 border border-slate-800 rounded-2xl max-w-2xl w-full p-6 shadow-2xl relative overflow-hidden">
+        <button id="close-details-modal" class="absolute top-4 right-4 text-slate-400 hover:text-white p-2 text-lg">✕</button>
+        
+        <!-- BADGES INFORMATIFS -->
+        <div class="flex items-center gap-2 mb-3 flex-wrap">
+          <span id="modal-source-badge" class="text-xs font-mono px-2.5 py-0.5 bg-blue-500/10 text-blue-400 border border-blue-500/20 rounded-full">--</span>
+          <span id="modal-cat-badge" class="text-xs font-mono px-2.5 py-0.5 bg-slate-800 text-slate-300 rounded-full">--</span>
+          <span id="modal-pricing-badge" class="text-xs font-mono px-2.5 py-0.5 bg-emerald-950/40 text-emerald-400 border border-emerald-800/40 rounded-full">--</span>
+          <span id="modal-apptype-badge" class="text-xs font-mono px-2.5 py-0.5 bg-purple-950/40 text-purple-300 border border-purple-800/40 rounded-full">--</span>
+          <span id="modal-api-badge" class="text-xs font-mono px-2.5 py-0.5 bg-amber-950/40 text-amber-300 border border-amber-800/40 rounded-full">--</span>
+        </div>
+
+        <h2 id="modal-title" class="text-2xl font-bold text-white mb-3">Titre Outil</h2>
+        <p id="modal-desc" class="text-sm text-slate-300 leading-relaxed mb-6">Description détaillée...</p>
+
+        <!-- CHEATSHEET ET COMMANDES -->
+        <div id="modal-cheatsheet-container" class="mb-6 bg-slate-950 border border-slate-800 rounded-xl p-4 font-mono text-xs hidden">
+          <div class="flex items-center justify-between text-slate-400 mb-2 font-sans font-semibold">
+            <span>💡 Commandes & CheatSheet</span>
+            <button id="btn-copy-cheatsheet" class="text-blue-400 hover:underline flex items-center gap-1 font-mono text-xs">
+              📋 Copier
+            </button>
+          </div>
+          <pre id="modal-cheatsheet" class="text-emerald-400 text-xs whitespace-pre-wrap font-mono overflow-x-auto max-h-40 leading-relaxed"></pre>
+        </div>
+
+        <!-- ACTIONS BAS DE MODALE -->
+        <div class="flex items-center justify-between pt-4 border-t border-slate-800">
+          <button id="modal-fav-toggle" class="text-xs font-semibold px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 transition flex items-center gap-1.5">
+            ⭐ <span>Favori</span>
+          </button>
+          <div class="flex items-center gap-3">
+            <button id="modal-copy-link" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl text-xs font-semibold transition flex items-center gap-1.5">
+              🔗 Copier lien
+            </button>
+            <a id="modal-visit-btn" href="#" target="_blank" rel="noopener noreferrer" class="px-5 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-xs font-semibold transition flex items-center gap-1.5 shadow-lg shadow-blue-500/20">
+              Visiter ↗
+            </a>
+          </div>
+        </div>
       </div>
     </div>
 
-    <!-- MODALE SUGGÉRER UN OUTIL -->
-    <div id="suggest-modal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm hidden opacity-0 transition-opacity duration-200">
-      <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6 w-full max-w-lg shadow-2xl relative transform scale-95 transition-transform duration-200">
-        <button id="close-modal" class="absolute top-4 right-4 text-slate-400 hover:text-white text-xl transition">✕</button>
-
-        <h2 class="text-xl font-bold text-white mb-1 flex items-center gap-2">
-          <span>💡</span> Proposer un outil
-        </h2>
-        <p class="text-xs text-slate-400 mb-5">Connaissez-vous une ressource utile ? Partagez-la avec la communauté !</p>
+    <!-- MODALE SUGGÉRER -->
+    <div id="suggest-modal" class="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-md hidden opacity-0 transition-opacity duration-200 flex items-center justify-center p-4">
+      <div class="bg-slate-900 border border-slate-800 rounded-2xl max-w-lg w-full p-6 shadow-2xl relative">
+        <button id="close-modal" class="absolute top-4 right-4 text-slate-400 hover:text-white text-lg p-2">✕</button>
+        <h3 class="text-xl font-bold text-white mb-1">🚀 Proposer un outil</h3>
+        <p class="text-xs text-slate-400 mb-6">Proposez une ressource. Notre équipe la validera rapidement !</p>
 
         <form id="suggest-form" class="space-y-4">
           <div>
-            <label class="block text-xs font-semibold text-slate-300 mb-1">Nom de l'outil *</label>
-            <input type="text" id="suggest-name" required placeholder="Ex: CyberChef" class="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-sm text-white focus:outline-none focus:border-blue-500 transition" />
+            <label class="block text-xs font-medium text-slate-300 mb-1">Nom de l'outil *</label>
+            <input type="text" id="suggest-name" required class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="Ex: Shodan" />
           </div>
           <div>
-            <label class="block text-xs font-semibold text-slate-300 mb-1">Lien URL *</label>
-            <input type="url" id="suggest-url" required placeholder="https://..." class="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-sm text-white focus:outline-none focus:border-blue-500 transition" />
+            <label class="block text-xs font-medium text-slate-300 mb-1">URL du site *</label>
+            <input type="url" id="suggest-url" required class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="https://..." />
           </div>
           <div class="grid grid-cols-2 gap-3">
             <div>
-              <label class="block text-xs font-semibold text-slate-300 mb-1">Source *</label>
-              <select id="suggest-source" class="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-sm text-white focus:outline-none focus:border-blue-500 transition">
+              <label class="block text-xs font-medium text-slate-300 mb-1">Source *</label>
+              <select id="suggest-source" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500">
                 <option value="free_for_dev">Free Dev</option>
                 <option value="awesome_osint">OSINT</option>
               </select>
             </div>
             <div>
-              <label class="block text-xs font-semibold text-slate-300 mb-1">Catégorie *</label>
-              <input type="text" id="suggest-cat" required placeholder="Ex: Encryption" class="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-sm text-white focus:outline-none focus:border-blue-500 transition" />
+              <label class="block text-xs font-medium text-slate-300 mb-1">Catégorie *</label>
+              <input type="text" id="suggest-cat" required class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="Ex: Search Engines" />
             </div>
           </div>
           <div>
-            <label class="block text-xs font-semibold text-slate-300 mb-1">Description courte</label>
-            <textarea id="suggest-desc" rows="3" placeholder="Brève explication..." class="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-sm text-white focus:outline-none focus:border-blue-500 resize-none transition"></textarea>
+            <label class="block text-xs font-medium text-slate-300 mb-1">Description courte</label>
+            <textarea id="suggest-desc" rows="3" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="À quoi sert cet outil ?"></textarea>
           </div>
-          <button type="submit" id="submit-suggest" class="w-full bg-blue-600 hover:bg-blue-500 text-white font-semibold py-2.5 rounded-xl text-sm transition flex justify-center items-center gap-2">
-            <span>🚀</span> Envoyer la suggestion
+          <button type="submit" class="w-full py-2.5 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-sm font-semibold transition shadow-lg shadow-blue-500/20">
+            Envoyer la suggestion
           </button>
         </form>
       </div>
     </div>
 
-    <!-- HEADER / NAVBAR -->
-    <header class="fixed top-0 left-0 w-full z-40 bg-slate-900/80 backdrop-blur-md border-b border-slate-800/80 px-4 lg:px-8 py-3">
-      <div class="max-w-7xl mx-auto flex items-center justify-between gap-4">
-        
-        <a href="#" id="btn-reset" class="flex items-center gap-2 text-lg font-extrabold tracking-tight text-white hover:text-blue-400 transition shrink-0">
-          <span class="text-2xl">⚡</span>
-          <span>Vault<span class="text-blue-500">.dev</span></span>
-        </a>
-
-        <!-- Menu Navigation Central -->
-        <nav class="hidden md:flex items-center gap-1 text-sm font-medium">
-          <button class="nav-filter-btn active px-3 py-1.5 rounded-lg text-slate-300 hover:text-white hover:bg-slate-800 transition" data-source="ALL" data-cat="ALL">
-            Tout afficher
-          </button>
-
-          <!-- Dropdown FREE DEV -->
-          <div class="relative group">
-            <button class="flex items-center gap-1 px-3 py-1.5 rounded-lg text-slate-300 hover:text-white hover:bg-slate-800 transition">
-              <span class="w-2 h-2 rounded-full bg-emerald-400"></span> Free Dev
-              <svg class="w-3.5 h-3.5 text-slate-400 group-hover:rotate-180 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
-            </button>
-            <div class="absolute left-0 top-full pt-2 hidden group-hover:block w-64">
-              <div class="bg-slate-900 border border-slate-800 rounded-xl shadow-2xl p-2 max-h-80 overflow-y-auto scrollbar-thin">
-                <button class="nav-filter-btn w-full text-left px-3 py-1.5 rounded-lg text-xs font-semibold text-emerald-400 hover:bg-emerald-950/50 transition mb-1" data-source="free_for_dev" data-cat="ALL">Toutes les catégories Free Dev</button>
-                <div class="h-px bg-slate-800 my-1"></div>
-                {freeDevCategories.map(cat => (
-                  <button class="nav-filter-btn w-full text-left px-3 py-1.5 rounded-lg text-xs text-slate-400 hover:text-white hover:bg-slate-800 truncate transition" data-source="free_for_dev" data-cat={cat}>{cat}</button>
-                ))}
-              </div>
-            </div>
-          </div>
-
-          <!-- Dropdown OSINT -->
-          <div class="relative group">
-            <button class="flex items-center gap-1 px-3 py-1.5 rounded-lg text-slate-300 hover:text-white hover:bg-slate-800 transition">
-              <span class="w-2 h-2 rounded-full bg-purple-400"></span> OSINT
-              <svg class="w-3.5 h-3.5 text-slate-400 group-hover:rotate-180 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
-            </button>
-            <div class="absolute left-0 top-full pt-2 hidden group-hover:block w-64">
-              <div class="bg-slate-900 border border-slate-800 rounded-xl shadow-2xl p-2 max-h-80 overflow-y-auto scrollbar-thin">
-                <button class="nav-filter-btn w-full text-left px-3 py-1.5 rounded-lg text-xs font-semibold text-purple-400 hover:bg-purple-950/50 transition mb-1" data-source="awesome_osint" data-cat="ALL">Toutes les catégories OSINT</button>
-                <div class="h-px bg-slate-800 my-1"></div>
-                {osintCategories.map(cat => (
-                  <button class="nav-filter-btn w-full text-left px-3 py-1.5 rounded-lg text-xs text-slate-400 hover:text-white hover:bg-slate-800 truncate transition" data-source="awesome_osint" data-cat={cat}>{cat}</button>
-                ))}
-              </div>
-            </div>
-          </div>
-
-          <!-- FAVORIS & EXPORT -->
-          <div class="flex items-center gap-1 bg-slate-950 border border-slate-800 rounded-xl p-0.5 ml-2">
-            <button id="btn-fav-toggle" class="flex items-center gap-1.5 px-3 py-1 rounded-lg text-yellow-400 hover:bg-yellow-400/10 transition">
-              <span>⭐</span> <span>Favoris</span>
-              <span id="fav-badge" class="text-[10px] bg-yellow-500/20 text-yellow-300 px-1.5 py-0.5 rounded-full">0</span>
-            </button>
-            <button id="btn-export-md" class="px-2 py-1 text-slate-400 hover:text-white transition" title="Exporter en Markdown (.md)">📤</button>
-            <button id="btn-share-stack" class="px-2 py-1 text-slate-400 hover:text-white transition" title="Copier lien de ma sélection">🔗</button>
-          </div>
-        </nav>
-
-        <!-- Actions Droite -->
-        <div class="flex items-center gap-2 shrink-0">
-          <button id="trigger-palette" class="hidden sm:flex items-center gap-2 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs px-3 py-1.5 rounded-xl border border-slate-700 transition">
-            <span>🔍 Rechercher...</span>
-            <kbd class="text-[10px] bg-slate-950 px-1.5 py-0.5 rounded text-slate-400 font-mono">⌘K</kbd>
-          </button>
-
-          <button id="open-suggest-modal" class="hidden sm:flex items-center gap-1.5 bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold px-3 py-2 rounded-xl transition shadow-lg shadow-blue-600/20">
-            ➕ Suggérer
-          </button>
-        </div>
-
-      </div>
-    </header>
-
-    <!-- MAIN CONTENT -->
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 relative z-10 w-full">
-      
-      <!-- Hero / Recherche -->
-      <section class="text-center max-w-3xl mx-auto mb-8">
-        <h1 class="text-3xl sm:text-5xl font-extrabold tracking-tight text-white mb-3">
-          Dev & OSINT <span class="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 via-teal-400 to-emerald-400">Vault</span>
-        </h1>
-        <p class="text-slate-400 text-sm sm:text-base">
-          Trouvez instantanément les meilleures ressources pour développeurs et chercheurs OSINT.
-        </p>
-
-        <!-- Barre de recherche -->
-        <div class="mt-6 relative max-w-2xl mx-auto">
-          <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-slate-500">🔍</div>
-          <input 
-            type="text" 
-            id="search-input" 
-            placeholder="Rechercher un outil, une catégorie, ou tapez '/'..." 
-            class="w-full pl-11 pr-16 py-3.5 rounded-2xl bg-slate-900/90 border border-slate-800 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 transition shadow-xl text-sm"
-          />
-          <div class="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
-            <kbd class="text-[10px] bg-slate-800 border border-slate-700 text-slate-400 px-2 py-1 rounded font-mono">/ Focus</kbd>
-          </div>
-        </div>
-
-        <!-- Quick Chips & Random -->
-        <div class="flex flex-wrap items-center justify-center gap-2 mt-4 text-xs font-medium">
-          <button class="quick-chip active px-3 py-1.5 rounded-xl bg-slate-900 border border-slate-800 hover:border-blue-500 text-slate-300 transition" data-source="ALL" data-cat="ALL">⚡ Tout</button>
-          <button class="quick-chip px-3 py-1.5 rounded-xl bg-slate-900 border border-slate-800 hover:border-emerald-500 text-emerald-400 transition" data-source="free_for_dev" data-cat="ALL">🟢 Free Dev</button>
-          <button class="quick-chip px-3 py-1.5 rounded-xl bg-slate-900 border border-slate-800 hover:border-purple-500 text-purple-400 transition" data-source="awesome_osint" data-cat="ALL">🟣 OSINT</button>
-          <button id="btn-random-trigger" class="px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-bold transition flex items-center gap-1.5 shadow-md shadow-blue-500/20">
-            🎲 Surprenez-moi ! <kbd class="text-[9px] bg-white/20 px-1 rounded font-mono">R</kbd>
-          </button>
-        </div>
-      </section>
-
-      <!-- STATISTIQUES DU VAULT -->
-      <section class="max-w-4xl mx-auto mb-10 bg-slate-900/40 border border-slate-800/80 rounded-2xl p-4 sm:p-5 backdrop-blur-sm shadow-xl">
-        <div class="grid grid-cols-2 md:grid-cols-4 gap-4 text-center mb-4">
-          <div class="p-3 bg-slate-950/60 rounded-xl border border-slate-800/60">
-            <span class="block text-2xl font-extrabold text-white">{totalTools}</span>
-            <span class="text-xs text-slate-400 font-medium">Ressources Total</span>
-          </div>
-          <div class="p-3 bg-emerald-950/20 rounded-xl border border-emerald-900/30">
-            <span class="block text-2xl font-extrabold text-emerald-400">{freeDevCount}</span>
-            <span class="text-xs text-emerald-300/80 font-medium">Free Dev</span>
-          </div>
-          <div class="p-3 bg-purple-950/20 rounded-xl border border-purple-900/30">
-            <span class="block text-2xl font-extrabold text-purple-400">{osintCount}</span>
-            <span class="text-xs text-purple-300/80 font-medium">OSINT</span>
-          </div>
-          <div class="p-3 bg-slate-950/60 rounded-xl border border-slate-800/60">
-            <span class="block text-2xl font-extrabold text-blue-400">{allCategoriesCount}</span>
-            <span class="text-xs text-slate-400 font-medium">Catégories</span>
-          </div>
-        </div>
-        <div>
-          <div class="flex justify-between text-[11px] font-bold mb-1.5 px-0.5">
-            <span class="text-emerald-400">Free Dev ({freeDevPercent}%)</span>
-            <span class="text-purple-400">OSINT ({osintPercent}%)</span>
-          </div>
-          <div class="w-full h-2.5 bg-slate-950 rounded-full overflow-hidden flex p-0.5 border border-slate-800">
-            <div style={`width: ${freeDevPercent}%`} class="h-full bg-emerald-500 rounded-l-full transition-all duration-500"></div>
-            <div style={`width: ${osintPercent}%`} class="h-full bg-purple-500 rounded-r-full transition-all duration-500"></div>
-          </div>
-        </div>
-      </section>
-
-      <!-- BARRE DE CONTRÔLE -->
-      <div class="flex flex-wrap justify-between items-center mb-6 px-1 gap-4 bg-slate-900/50 p-3 rounded-xl border border-slate-800">
-        <div id="active-filter-indicator" class="text-xs text-blue-400 bg-blue-500/10 border border-blue-500/20 px-3 py-1.5 rounded-lg hidden">
-          Filtre : <span id="filter-name-text" class="font-bold"></span>
-        </div>
-        
-        <div class="flex items-center gap-3 ml-auto w-full sm:w-auto justify-between sm:justify-end">
-          <!-- VUE GRILLE / LISTE -->
-          <div class="flex items-center bg-slate-950 border border-slate-800 rounded-lg p-0.5">
-            <button id="btn-view-grid" class="p-1.5 rounded-md text-slate-400 hover:text-white transition" title="Vue Grille">
-              <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path d="M5 3a2 2 0 00-2 2v2a2 2 0 002 2h2a2 2 0 002-2V5a2 2 0 00-2-2H5zM5 11a2 2 0 00-2 2v2a2 2 0 002 2h2a2 2 0 002-2v-2a2 2 0 00-2-2H5zM11 5a2 2 0 002-2h2a2 2 0 002 2v2a2 2 0 00-2 2h-2a2 2 0 00-2-2V5zM11 13a2 2 0 002-2h2a2 2 0 002 2v2a2 2 0 00-2 2h-2a2 2 0 00-2-2v-2z"></path></svg>
-            </button>
-            <button id="btn-view-list" class="p-1.5 rounded-md text-slate-400 hover:text-white transition" title="Vue Liste Compacte">
-              <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M3 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1z" clip-rule="evenodd"></path></svg>
-            </button>
-          </div>
-
-          <!-- TRI -->
-          <select id="sort-select" class="bg-slate-950 border border-slate-700 text-slate-300 text-xs rounded-lg px-2 py-1.5 focus:outline-none focus:border-blue-500 transition cursor-pointer">
-            <option value="default">Par pertinence</option>
-            <option value="az">Alphabétique (A-Z)</option>
-            <option value="za">Alphabétique (Z-A)</option>
-          </select>
-          
-          <span id="counter" class="text-sm font-medium text-slate-400">
-            Affichage de <strong class="text-white">{enrichedTools.length}</strong> ressources
-          </span>
-        </div>
-      </div>
-
-      <!-- GRILLE DES CARTES -->
-      <main>
-        <div id="tools-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 transition-all">
-          {enrichedTools.map((tool) => {
-            const isFreeDev = tool.source === 'free_for_dev';
-
-            return (
-              <div 
-                class="tool-card group relative bg-slate-900/50 border border-slate-800 hover:border-blue-500/50 rounded-2xl p-5 transition-all duration-200 flex flex-col justify-between backdrop-blur-sm cursor-pointer hover:shadow-xl hover:shadow-blue-500/5"
-                data-id={tool.id}
-                data-title={tool.title} 
-                data-desc={tool.safeDesc} 
-                data-cat={tool.cleanCategory}
-                data-source={tool.source}
-                data-url={tool.url}
-              >
-                <div>
-                  <div class="flex items-center justify-between gap-2 mb-3">
-                    <div class="flex items-center gap-1.5 overflow-hidden">
-                      <span class="text-[11px] font-semibold px-2.5 py-0.5 rounded-md bg-slate-800 text-slate-300 border border-slate-700/50 truncate max-w-[120px]">
-                        {tool.cleanCategory}
-                      </span>
-                      <span class="text-[10px] font-bold px-1.5 py-0.5 rounded bg-slate-950 text-slate-400 border border-slate-800">
-                        {tool.pricing}
-                      </span>
-                    </div>
-                    
-                    <div class="flex items-center gap-2 shrink-0">
-                      <button class="copy-btn text-slate-500 hover:text-blue-400 transition text-sm p-1" data-url={tool.url} title="Copier le lien">🔗</button>
-                      <button class="fav-btn text-slate-600 hover:text-yellow-400 transition text-lg p-1" data-id={tool.id} title="Favori">★</button>
-                      <span class={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded ${
-                        isFreeDev ? 'bg-emerald-950 text-emerald-400 border border-emerald-800/50' : 'bg-purple-950 text-purple-400 border border-purple-800/50'
-                      }`}>
-                        {isFreeDev ? 'Free-Dev' : 'OSINT'}
-                      </span>
-                    </div>
-                  </div>
-
-                  <h3 class="card-title text-lg font-bold text-white group-hover:text-blue-400 transition-colors mb-2 flex items-center justify-between">
-                    <span>{tool.title}</span>
-                    <span class="text-xs text-slate-500 font-normal group-hover:text-blue-400 transition-colors">Détails ℹ️</span>
-                  </h3>
-                  
-                  <p class="card-desc text-slate-400 text-sm leading-relaxed line-clamp-3 mb-4">
-                    {tool.safeDesc}
-                  </p>
-                </div>
-
-                <a 
-                  href={tool.url} 
-                  target="_blank" 
-                  rel="noopener noreferrer" 
-                  class="visit-btn inline-flex items-center justify-center gap-2 w-full py-2.5 px-4 rounded-xl bg-slate-800 hover:bg-blue-600 text-slate-200 hover:text-white text-sm font-semibold transition border border-slate-700/50 hover:border-blue-500"
-                >
-                  <span>Visiter le site</span> ↗
-                </a>
-              </div>
-            );
-          })}
-        </div>
-
-        <div class="text-center mt-10 mb-16">
-          <button id="btn-load-more" class="px-8 py-3.5 rounded-2xl bg-slate-900 hover:bg-blue-600 text-white font-semibold border border-slate-800 hover:border-blue-500 transition shadow-xl">
-            Charger plus de ressources...
-          </button>
-        </div>
-      </main>
-
+    <!-- TOAST NOTIFICATION -->
+    <div id="toast" class="fixed bottom-6 right-6 z-50 flex items-center gap-3 px-4 py-3 bg-slate-900 border border-slate-800 rounded-xl shadow-2xl text-xs font-medium text-white transition-all duration-300 opacity-0 translate-y-10 pointer-events-none">
+      <span id="toast-icon" class="text-base">✅</span>
+      <span id="toast-message">Action effectuée</span>
     </div>
 
-    <!-- SCRIPT ENGINE -->
+    <!-- INJECTION SÉCURISÉE DES DONNÉES -->
+    <script id="vault-tools-data" type="application/json" set:html={JSON.stringify(enrichedTools)}></script>
+
+    <!-- SCRIPT CLIENT OPTIMISÉ -->
     <script>
       import Fuse from 'fuse.js';
 
-      // Pass tools data to client script
-      let currentView = localStorage.getItem('vault_view') || 'grid';
+      const rawData = document.getElementById('vault-tools-data')?.textContent || '[]';
+      const enrichedTools = JSON.parse(rawData);
+
+      let tools = enrichedTools;
       let selectedSource = 'ALL';
-      let selectedCategory = 'ALL';
-      let currentSort = 'default';
-      let favOnly = false;
+      let selectedCat = 'ALL';
+      let showOnlyFavs = false;
       let favorites = JSON.parse(localStorage.getItem('vault_favs') || '[]');
-      
-      const pageSize = 30;
-      let visibleLimit = pageSize;
-      let activeDetailToolId = null;
+      let displayLimit = 60;
+      let filteredToolsCache = [...tools];
+      let activeToolForModal = null;
 
-      const cards = Array.from(document.querySelectorAll('.tool-card')) as HTMLElement[];
-      const input = document.getElementById('search-input') as HTMLInputElement;
-      const counter = document.getElementById('counter');
-      const favBadge = document.getElementById('fav-badge');
+      const fuse = new Fuse(tools, {
+        keys: ['title', 'cleanCategory', 'safeDesc', 'pricing', 'appType'],
+        threshold: 0.35,
+      });
+
+      const searchInput = document.getElementById('search-input') as HTMLInputElement;
       const sortSelect = document.getElementById('sort-select') as HTMLSelectElement;
-      const activeFilterIndicator = document.getElementById('active-filter-indicator');
-      const filterNameText = document.getElementById('filter-name-text');
-      const loadMoreBtn = document.getElementById('btn-load-more');
+      const counterNum = document.getElementById('counter-num');
+      const favBadge = document.getElementById('fav-badge');
       const toast = document.getElementById('toast');
-      const toastMessage = document.getElementById('toast-message');
       const toastIcon = document.getElementById('toast-icon');
-      const backToTopBtn = document.getElementById('back-to-top');
+      const toastMessage = document.getElementById('toast-message');
+      const activeFilterInd = document.getElementById('active-filter-indicator');
+      const filterNameText = document.getElementById('filter-name-text');
+      const grid = document.getElementById('tools-grid');
 
-      // Modale Détails
-      const detailsModal = document.getElementById('details-modal');
-      const modalTitle = document.getElementById('modal-title');
-      const modalDesc = document.getElementById('modal-desc');
-      const modalCatBadge = document.getElementById('modal-cat-badge');
-      const modalSourceBadge = document.getElementById('modal-source-badge');
-      const modalPricingBadge = document.getElementById('modal-pricing-badge');
-      const modalApiBadge = document.getElementById('modal-api-badge');
-      const modalCommand = document.getElementById('modal-command');
-      const modalCheatsheet = document.getElementById('modal-cheatsheet');
-      const modalAlternatives = document.getElementById('modal-alternatives');
-      const modalVisitBtn = document.getElementById('modal-visit-btn') as HTMLAnchorElement;
-      const modalFavBtn = document.getElementById('modal-fav-btn');
-
-      // Palette de commande
-      const commandPalette = document.getElementById('command-palette');
-      const paletteInput = document.getElementById('palette-input') as HTMLInputElement;
-
-      // Registration PWA Service Worker
-      if ('serviceWorker' in navigator) {
-        window.addEventListener('load', () => {
-          navigator.serviceWorker.register('/sw.js').catch(() => {});
-        });
-      }
-
-      function showToast(msg, isError = false) {
-        if (toast && toastMessage && toastIcon) {
-          toastMessage.textContent = msg;
-          toastIcon.textContent = isError ? "❌" : "✅";
-          toast.classList.remove('opacity-0', 'translate-y-10', 'pointer-events-none');
-          setTimeout(() => toast.classList.add('opacity-0', 'translate-y-10', 'pointer-events-none'), 3000);
-        }
-      }
-
-      // Vue Grille vs Liste
-      const viewGridBtn = document.getElementById('btn-view-grid');
-      const viewListBtn = document.getElementById('btn-view-list');
-
-      function setView(view) {
-        currentView = view;
-        localStorage.setItem('vault_view', view);
-        if (view === 'list') {
-          document.body.classList.add('view-list');
-          viewListBtn?.classList.add('bg-slate-800', 'text-blue-400');
-          viewGridBtn?.classList.remove('bg-slate-800', 'text-blue-400');
-        } else {
-          document.body.classList.remove('view-list');
-          viewGridBtn?.classList.add('bg-slate-800', 'text-blue-400');
-          viewListBtn?.classList.remove('bg-slate-800', 'text-blue-400');
-        }
-      }
-      viewGridBtn?.addEventListener('click', () => setView('grid'));
-      viewListBtn?.addEventListener('click', () => setView('list'));
-      setView(currentView);
-
-      // Preparation des données pour Fuse.js
-      const toolsData = cards.map((card) => {
-        const id = card.getAttribute('data-id') || '0';
-        const title = card.getAttribute('data-title') || '';
-        const desc = card.getAttribute('data-desc') || '';
-        const cat = card.getAttribute('data-cat') || '';
-        const source = card.getAttribute('data-source') || '';
-        const url = card.getAttribute('data-url') || '';
-        const isCli = cat.toLowerCase().includes('cli') || desc.toLowerCase().includes('python');
-        const requiresApi = desc.toLowerCase().includes('api key') || desc.toLowerCase().includes('shodan');
-
-        return {
-          id,
-          index: parseInt(id, 10),
-          title,
-          desc,
-          cat,
-          source,
-          url,
-          pricing: url.includes('github.com') ? 'Open Source' : 'Gratuit',
-          requiresApi,
-          cheatSheet: isCli ? `${title.toLowerCase()} --help\n${title.toLowerCase()} -u target_user` : `curl -s "${url}"`
-        };
+      const cardMap = new Map();
+      document.querySelectorAll('.tool-card').forEach(card => {
+        const id = Number(card.getAttribute('data-id'));
+        cardMap.set(id, card);
       });
 
-      // RACCOURCIS CLAVIER GLOBATUX (Ctrl+K, Esc, /, R)
-      document.addEventListener('keydown', (e) => {
-        const activeTag = document.activeElement?.tagName.toLowerCase();
-        const isInput = activeTag === 'input' || activeTag === 'textarea' || activeTag === 'select';
-
-        // Ctrl+K / Cmd+K
-        if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
-          e.preventDefault();
-          toggleCommandPalette();
-          return;
-        }
-
-        // Escape -> Fermer tout
-        if (e.key === 'Escape') {
-          closeAllModals();
-          return;
-        }
-
-        if (!isInput) {
-          // Focus Recherche "/"
-          if (e.key === '/') {
-            e.preventDefault();
-            input?.focus();
-          }
-          // Randomizer "R"
-          if (e.key === 'r' || e.key === 'R') {
-            e.preventDefault();
-            triggerRandomTool();
-          }
-        }
-      });
-
-      function closeAllModals() {
-        [detailsModal, commandPalette, document.getElementById('suggest-modal')].forEach(m => {
-          m?.classList.add('opacity-0');
-          setTimeout(() => m?.classList.add('hidden'), 150);
-        });
+      function showToast(msg: string, icon = '✅') {
+        if (!toast || !toastIcon || !toastMessage) return;
+        toastIcon.textContent = icon;
+        toastMessage.textContent = msg;
+        toast.classList.remove('opacity-0', 'translate-y-10', 'pointer-events-none');
+        setTimeout(() => {
+          toast.classList.add('opacity-0', 'translate-y-10', 'pointer-events-none');
+        }, 2500);
       }
 
-      function toggleCommandPalette() {
-        if (commandPalette?.classList.contains('hidden')) {
-          commandPalette.classList.remove('hidden');
-          setTimeout(() => {
-            commandPalette.classList.remove('opacity-0');
-            paletteInput?.focus();
-          }, 10);
-        } else {
-          commandPalette?.classList.add('opacity-0');
-          setTimeout(() => commandPalette?.classList.add('hidden'), 150);
-        }
-      }
-
-      document.getElementById('trigger-palette')?.addEventListener('click', toggleCommandPalette);
-
-      // Fiche Détaillée
-      function openToolDetails(index) {
-        const tool = toolsData[index];
-        if (!tool) return;
-
-        activeDetailToolId = index.toString();
-
-        if (modalTitle) modalTitle.textContent = tool.title;
-        if (modalDesc) modalDesc.textContent = tool.desc;
-        if (modalCatBadge) modalCatBadge.textContent = tool.cat;
-        
-        const isFreeDev = tool.source === 'free_for_dev';
-        if (modalSourceBadge) {
-          modalSourceBadge.textContent = isFreeDev ? 'Free-Dev' : 'OSINT';
-          modalSourceBadge.className = `text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded ${
-            isFreeDev ? 'bg-emerald-950 text-emerald-400 border border-emerald-800/50' : 'bg-purple-950 text-purple-400 border border-purple-800/50'
-          }`;
-        }
-
-        if (modalPricingBadge) modalPricingBadge.textContent = tool.pricing;
-        if (modalApiBadge) {
-          if (tool.requiresApi) modalApiBadge.classList.remove('hidden');
-          else modalApiBadge.classList.add('hidden');
-        }
-
-        if (modalVisitBtn) modalVisitBtn.href = tool.url;
-
-        if (modalCommand) {
-          const cleanTitle = tool.title.toLowerCase().replace(/[^a-z0-9]/g, '');
-          modalCommand.textContent = isFreeDev ? `npm install ${cleanTitle}   # ou pip install ${cleanTitle}` : `docker run --rm -it osint/${cleanTitle}:latest`;
-        }
-
-        if (modalCheatsheet) modalCheatsheet.textContent = tool.cheatSheet;
-
-        // Alternatives
-        if (modalAlternatives) {
-          modalAlternatives.innerHTML = '';
-          const alts = toolsData.filter(t => t.cat === tool.cat && t.index !== tool.index).slice(0, 4);
-          if (alts.length > 0) {
-            alts.forEach(alt => {
-              const btn = document.createElement('button');
-              btn.className = 'px-3 py-1.5 rounded-xl bg-slate-950 border border-slate-800 hover:border-blue-500 text-xs text-slate-300 hover:text-white transition font-medium';
-              btn.textContent = `🔗 ${alt.title}`;
-              btn.onclick = () => openToolDetails(alt.index);
-              modalAlternatives.appendChild(btn);
-            });
-          } else {
-            modalAlternatives.innerHTML = '<span class="text-xs text-slate-500 italic">Aucune autre alternative.</span>';
-          }
-        }
-
-        updateModalFavButton();
-        detailsModal?.classList.remove('hidden');
-        setTimeout(() => detailsModal?.classList.remove('opacity-0'), 10);
-      }
-
-      function updateModalFavButton() {
-        if (!modalFavBtn || activeDetailToolId === null) return;
-        const isFav = favorites.includes(activeDetailToolId);
-        modalFavBtn.innerHTML = isFav ? '<span class="text-yellow-400">★</span> En favori' : '<span>★</span> Favori';
-        modalFavBtn.className = `flex items-center gap-2 px-4 py-2.5 rounded-xl font-semibold text-xs sm:text-sm transition border ${
-          isFav ? 'bg-yellow-500/10 border-yellow-500/30 text-yellow-300' : 'bg-slate-800 border-slate-700 text-slate-200 hover:bg-slate-700'
-        }`;
-      }
-
-      modalFavBtn?.addEventListener('click', () => {
-        if (activeDetailToolId === null) return;
-        if (favorites.includes(activeDetailToolId)) favorites = favorites.filter(f => f !== activeDetailToolId);
-        else favorites.push(activeDetailToolId);
-        localStorage.setItem('vault_favs', JSON.stringify(favorites));
-        updateFavIcons();
-        updateModalFavButton();
-      });
-
-      document.getElementById('btn-copy-command')?.addEventListener('click', () => {
-        if (modalCommand?.textContent) {
-          navigator.clipboard.writeText(modalCommand.textContent).then(() => showToast("Commande copiée !"));
-        }
-      });
-
-      document.getElementById('close-details-modal')?.addEventListener('click', closeAllModals);
-
-      cards.forEach((card, index) => {
-        card.addEventListener('click', (e) => {
-          const target = e.target as HTMLElement;
-          if (target.closest('.copy-btn') || target.closest('.fav-btn') || target.closest('.visit-btn')) return;
-          openToolDetails(index);
-        });
-      });
-
-      // Random Tool
-      function triggerRandomTool() {
-        const visibleCards = cards.filter(c => !c.classList.contains('hidden'));
-        const pool = visibleCards.length > 0 ? visibleCards : cards;
-        const randomCard = pool[Math.floor(Math.random() * pool.length)];
-        if (randomCard) {
-          const id = randomCard.getAttribute('data-id');
-          if (id) openToolDetails(parseInt(id, 10));
-        }
-      }
-      document.getElementById('btn-random-trigger')?.addEventListener('click', triggerRandomTool);
-
-      // EXPORT & PARTAGE FAVORIS (STACK EXPORTER)
-      function exportFavoritesMarkdown() {
-        if (favorites.length === 0) {
-          showToast("Aucun favori à exporter !", true);
-          return;
-        }
-        const favTools = toolsData.filter(t => favorites.includes(t.id));
-        let mdContent = `# ⚡ Mon OSINT & Dev Stack (${favTools.length} outils)\n\nGénéré depuis Vault.dev\n\n`;
-        favTools.forEach(t => {
-          mdContent += `- [**${t.title}**](${t.url}) - *${t.cat}*: ${t.desc}\n`;
-        });
-
-        const blob = new Blob([mdContent], { type: 'text/markdown' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = 'my-vault-favorites.md';
-        a.click();
-        URL.revokeObjectURL(url);
-        showToast("Exportation Markdown téléchargée !");
-      }
-
-      function shareFavoritesLink() {
-        if (favorites.length === 0) {
-          showToast("Ajoutez des favoris avant de partager !", true);
-          return;
-        }
-        const shareUrl = `${window.location.origin}${window.location.pathname}?favs=${favorites.join(',')}`;
-        navigator.clipboard.writeText(shareUrl).then(() => {
-          showToast("Lien de votre sélection copié !");
-        });
-      }
-
-      document.getElementById('btn-export-md')?.addEventListener('click', exportFavoritesMarkdown);
-      document.getElementById('btn-share-stack')?.addEventListener('click', shareFavoritesLink);
-
-      // Action depuis palette
-      document.querySelectorAll('.palette-item').forEach(item => {
-        item.addEventListener('click', () => {
-          const action = item.getAttribute('data-action');
-          toggleCommandPalette();
-          if (action === 'random') triggerRandomTool();
-          if (action === 'favs') { favOnly = true; filterTools(); }
-          if (action === 'export-md') exportFavoritesMarkdown();
-          if (action === 'share-stack') shareFavoritesLink();
-        });
-      });
-
-      // Lecture des favoris partagés dans l'URL (?favs=1,4,12)
-      const urlParams = new URLSearchParams(window.location.search);
-      const sharedFavs = urlParams.get('favs');
-      if (sharedFavs) {
-        const parsedIds = sharedFavs.split(',').filter(Boolean);
-        if (parsedIds.length > 0) {
-          favorites = [...new Set([...favorites, ...parsedIds])];
-          localStorage.setItem('vault_favs', JSON.stringify(favorites));
-          favOnly = true;
-          showToast(`Chargement de ${parsedIds.length} favoris partagés !`);
-        }
-      }
-
-      // Engine de Recherche (Fuse.js)
-      const fuse = new Fuse(toolsData, {
-        keys: ['title', 'desc', 'cat'],
-        threshold: 0.3,
-        ignoreLocation: true
-      });
-
-      function filterTools() {
-        const query = input.value.trim();
-        let validIndices = toolsData.map(t => t.index);
-
-        if (query) validIndices = fuse.search(query).map(r => r.item.index);
-        if (selectedSource !== 'ALL') validIndices = validIndices.filter(idx => toolsData[idx].source === selectedSource);
-        if (selectedCategory !== 'ALL') validIndices = validIndices.filter(idx => toolsData[idx].cat === selectedCategory);
-        if (favOnly) validIndices = validIndices.filter(idx => favorites.includes(idx.toString()));
-
-        let sortedIndices = [...validIndices];
-        if (currentSort === 'az') sortedIndices.sort((a, b) => toolsData[a].title.localeCompare(toolsData[b].title));
-        else if (currentSort === 'za') sortedIndices.sort((a, b) => toolsData[b].title.localeCompare(toolsData[a].title));
-
-        const totalMatching = sortedIndices.length;
-        let displayedCount = 0;
-
-        cards.forEach((card, idx) => {
-          if (sortedIndices.includes(idx)) {
-            displayedCount++;
-            card.style.order = sortedIndices.indexOf(idx).toString();
-            if (displayedCount <= visibleLimit) card.classList.remove('hidden');
-            else card.classList.add('hidden');
-          } else {
-            card.classList.add('hidden');
-          }
-        });
-
-        if (loadMoreBtn) {
-          if (totalMatching > visibleLimit) loadMoreBtn.classList.remove('hidden');
-          else loadMoreBtn.classList.add('hidden');
-        }
-
-        if (counter) counter.innerHTML = `Affichage de <strong class="text-white">${Math.min(displayedCount, visibleLimit)}</strong> sur <strong class="text-white">${totalMatching}</strong> ressources`;
-
-        if (selectedCategory !== 'ALL' || selectedSource !== 'ALL' || favOnly) {
-          activeFilterIndicator?.classList.remove('hidden');
-          let label = favOnly ? "Favoris" : `${selectedSource !== 'ALL' ? (selectedSource === 'free_for_dev' ? 'Free-Dev' : 'OSINT') : ''} ${selectedCategory !== 'ALL' ? '> ' + selectedCategory : ''}`;
-          if (filterNameText) filterNameText.textContent = label;
-        } else {
-          activeFilterIndicator?.classList.add('hidden');
-        }
-      }
-
-      input?.addEventListener('input', () => { visibleLimit = pageSize; filterTools(); });
-      sortSelect?.addEventListener('change', (e) => { currentSort = (e.target as HTMLSelectElement).value; filterTools(); });
-      loadMoreBtn?.addEventListener('click', () => { visibleLimit += pageSize; filterTools(); });
-
-      document.querySelectorAll('.nav-filter-btn, .quick-chip').forEach(btn => {
-        btn.addEventListener('click', () => {
-          favOnly = false;
-          visibleLimit = pageSize;
-          selectedSource = btn.getAttribute('data-source') || 'ALL';
-          selectedCategory = btn.getAttribute('data-cat') || 'ALL';
-          filterTools();
-        });
-      });
-
-      document.getElementById('btn-reset')?.addEventListener('click', (e) => {
-        e.preventDefault();
-        favOnly = false;
-        visibleLimit = pageSize;
-        selectedSource = 'ALL';
-        selectedCategory = 'ALL';
-        currentSort = 'default';
-        if (sortSelect) sortSelect.value = 'default';
-        input.value = '';
-        filterTools();
-      });
-
-      document.querySelectorAll('.copy-btn').forEach(btn => {
-        btn.addEventListener('click', (e) => {
-          e.stopPropagation();
-          navigator.clipboard.writeText(btn.getAttribute('data-url') || '').then(() => showToast("Lien copié !"));
-        });
-      });
-
-      function updateFavIcons() {
+      function updateFavoritesUI() {
         if (favBadge) favBadge.textContent = favorites.length.toString();
         document.querySelectorAll('.fav-btn').forEach(btn => {
-          const id = btn.getAttribute('data-id');
+          const id = Number(btn.getAttribute('data-id'));
           if (favorites.includes(id)) {
             btn.classList.add('text-yellow-400');
             btn.classList.remove('text-slate-600');
@@ -944,42 +428,288 @@ const allCategoriesCount = [...new Set(enrichedTools.map(i => i.cleanCategory))]
         });
       }
 
-      document.querySelectorAll('.fav-btn').forEach(btn => {
-        btn.addEventListener('click', (e) => {
-          e.stopPropagation();
-          const id = btn.getAttribute('data-id');
-          if (!id) return;
-          if (favorites.includes(id)) favorites = favorites.filter(f => f !== id);
-          else favorites.push(id);
-          
-          localStorage.setItem('vault_favs', JSON.stringify(favorites));
-          updateFavIcons();
-          if (favOnly) filterTools();
+      function filterAndDisplay() {
+        const query = searchInput ? searchInput.value.trim() : '';
+        let matchedTools = [];
+
+        if (query) {
+          const results = fuse.search(query);
+          matchedTools = results.map(r => r.item);
+        } else {
+          matchedTools = [...tools];
+        }
+
+        matchedTools = matchedTools.filter(t => {
+          if (selectedSource !== 'ALL' && t.source !== selectedSource) return false;
+          if (selectedCat !== 'ALL' && t.cleanCategory !== selectedCat) return false;
+          if (showOnlyFavs && !favorites.includes(t.id)) return false;
+          return true;
+        });
+
+        const sortVal = sortSelect?.value;
+        if (sortVal === 'az') {
+          matchedTools.sort((a, b) => a.title.localeCompare(b.title));
+        } else if (sortVal === 'za') {
+          matchedTools.sort((a, b) => b.title.localeCompare(a.title));
+        }
+
+        filteredToolsCache = matchedTools;
+        if (counterNum) counterNum.textContent = matchedTools.length.toString();
+
+        requestAnimationFrame(() => {
+          const visibleIds = new Set(matchedTools.slice(0, displayLimit).map(t => t.id));
+
+          cardMap.forEach((card, id) => {
+            if (visibleIds.has(id)) {
+              card.style.display = 'flex';
+            } else {
+              card.style.display = 'none';
+            }
+          });
+        });
+
+        if (activeFilterInd && filterNameText) {
+          if (showOnlyFavs) {
+            activeFilterInd.classList.remove('hidden');
+            filterNameText.textContent = '⭐ Mes Favoris';
+          } else if (selectedCat !== 'ALL') {
+            activeFilterInd.classList.remove('hidden');
+            filterNameText.textContent = `${selectedSource === 'free_for_dev' ? 'Free Dev' : 'OSINT'} > ${selectedCat}`;
+          } else if (selectedSource !== 'ALL') {
+            activeFilterInd.classList.remove('hidden');
+            filterNameText.textContent = selectedSource === 'free_for_dev' ? 'Free Dev' : 'OSINT';
+          } else {
+            activeFilterInd.classList.add('hidden');
+          }
+        }
+      }
+
+      // FONCTION "SURPRENEZ-MOI !"
+      function triggerRandomTool() {
+        const pool = filteredToolsCache.length > 0 ? filteredToolsCache : tools;
+        if (!pool || pool.length === 0) return;
+        const randomIndex = Math.floor(Math.random() * pool.length);
+        const randomTool = pool[randomIndex];
+        openToolModal(randomTool.id);
+        showToast(`Outil au hasard : ${randomTool.title}`, "🎲");
+      }
+
+      document.getElementById('btn-surprise-nav')?.addEventListener('click', triggerRandomTool);
+      document.getElementById('btn-surprise-hero')?.addEventListener('click', triggerRandomTool);
+
+      // RACCOURCIS CLAVIER (⌘K pour recherche, Escape pour fermer les modales)
+      window.addEventListener('keydown', (e) => {
+        if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
+          e.preventDefault();
+          searchInput?.focus();
+          searchInput?.select();
+        } else if (e.key === 'Escape') {
+          closeAllModals();
+        }
+      });
+
+      document.getElementById('trigger-palette')?.addEventListener('click', () => {
+        searchInput?.focus();
+        searchInput?.select();
+      });
+
+      let searchTimeout: any;
+      searchInput?.addEventListener('input', () => {
+        clearTimeout(searchTimeout);
+        displayLimit = 60;
+        searchTimeout = setTimeout(filterAndDisplay, 150);
+      });
+
+      sortSelect?.addEventListener('change', () => {
+        displayLimit = 60;
+        filterAndDisplay();
+      });
+
+      document.querySelectorAll('.nav-filter-btn, .quick-chip').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const sourceAttr = btn.getAttribute('data-source');
+          const catAttr = btn.getAttribute('data-cat');
+
+          if (sourceAttr !== null) selectedSource = sourceAttr;
+          if (catAttr !== null) selectedCat = catAttr;
+
+          showOnlyFavs = false;
+          displayLimit = 60;
+
+          document.querySelectorAll('.quick-chip').forEach(c => c.classList.remove('active', 'border-blue-500'));
+          btn.classList.add('active');
+
+          filterAndDisplay();
         });
       });
 
+      document.getElementById('reset-filter-btn')?.addEventListener('click', () => {
+        selectedSource = 'ALL';
+        selectedCat = 'ALL';
+        showOnlyFavs = false;
+        if (searchInput) searchInput.value = '';
+        filterAndDisplay();
+      });
+
       document.getElementById('btn-fav-toggle')?.addEventListener('click', () => {
-        favOnly = !favOnly;
-        visibleLimit = pageSize;
-        filterTools();
+        showOnlyFavs = !showOnlyFavs;
+        displayLimit = 60;
+        filterAndDisplay();
       });
 
-      window.addEventListener('scroll', () => {
-        if (window.scrollY > 400) backToTopBtn?.classList.remove('opacity-0', 'pointer-events-none');
-        else backToTopBtn?.classList.add('opacity-0', 'pointer-events-none');
-      });
-      backToTopBtn?.addEventListener('click', () => window.scrollTo({ top: 0, behavior: 'smooth' }));
+      grid?.addEventListener('click', (e: any) => {
+        const target = e.target;
+        if (!target) return;
+        
+        if (target.classList.contains('fav-btn')) {
+          e.stopPropagation();
+          const id = Number(target.getAttribute('data-id'));
+          toggleFavorite(id);
+          return;
+        }
 
-      // Formspree Suggestion
+        if (target.classList.contains('copy-btn')) {
+          e.stopPropagation();
+          const url = target.getAttribute('data-url') || '';
+          navigator.clipboard.writeText(url);
+          showToast("Lien copié !", "🔗");
+          return;
+        }
+
+        const card = target.closest('.tool-card');
+        if (card && !target.closest('.visit-btn')) {
+          const id = Number(card.getAttribute('data-id'));
+          openToolModal(id);
+        }
+      });
+
+      function toggleFavorite(id: number) {
+        if (favorites.includes(id)) {
+          favorites = favorites.filter((f: number) => f !== id);
+          showToast("Retiré des favoris", "🗑️");
+        } else {
+          favorites.push(id);
+          showToast("Ajouté aux favoris !", "⭐");
+        }
+        localStorage.setItem('vault_favs', JSON.stringify(favorites));
+        updateFavoritesUI();
+        if (showOnlyFavs) filterAndDisplay();
+      }
+
+      // MODALE DE DETAILS
+      const detailsModal = document.getElementById('details-modal');
+      const cheatsheetContainer = document.getElementById('modal-cheatsheet-container');
+      const cheatsheetText = document.getElementById('modal-cheatsheet');
+
+      function openToolModal(id: number) {
+        const tool = tools.find((t: any) => t.id === id);
+        if (!tool || !detailsModal) return;
+
+        activeToolForModal = tool;
+
+        // Informations
+        (document.getElementById('modal-title') as HTMLElement).textContent = tool.title;
+        (document.getElementById('modal-desc') as HTMLElement).textContent = tool.safeDesc;
+        
+        // Badges
+        (document.getElementById('modal-source-badge') as HTMLElement).textContent = tool.source === 'free_for_dev' ? 'Free Dev' : 'OSINT';
+        (document.getElementById('modal-cat-badge') as HTMLElement).textContent = tool.cleanCategory;
+        (document.getElementById('modal-pricing-badge') as HTMLElement).textContent = tool.pricing || 'Gratuit';
+        (document.getElementById('modal-apptype-badge') as HTMLElement).textContent = `App: ${tool.appType || 'Web'}`;
+        (document.getElementById('modal-api-badge') as HTMLElement).textContent = tool.requiresApi ? '🔑 API Requise' : '🔓 Sans API';
+
+        // CheatSheet / Commandes
+        if (tool.cheatSheet && tool.cheatSheet.trim().length > 0) {
+          cheatsheetContainer?.classList.remove('hidden');
+          if (cheatsheetText) cheatsheetText.textContent = tool.cheatSheet;
+        } else {
+          cheatsheetContainer?.classList.add('hidden');
+        }
+
+        // Liens et boutons
+        const visitBtn = document.getElementById('modal-visit-btn') as HTMLAnchorElement;
+        if (visitBtn) visitBtn.href = tool.url;
+
+        detailsModal.classList.remove('hidden');
+        setTimeout(() => detailsModal.classList.remove('opacity-0'), 10);
+      }
+
+      function closeAllModals() {
+        if (detailsModal && !detailsModal.classList.contains('hidden')) {
+          detailsModal.classList.add('opacity-0');
+          setTimeout(() => detailsModal.classList.add('hidden'), 200);
+        }
+        if (suggestModal && !suggestModal.classList.contains('hidden')) {
+          suggestModal.classList.add('opacity-0');
+          setTimeout(() => suggestModal.classList.add('hidden'), 200);
+        }
+      }
+
+      document.getElementById('close-details-modal')?.addEventListener('click', closeAllModals);
+
+      document.getElementById('modal-copy-link')?.addEventListener('click', () => {
+        if (activeToolForModal?.url) {
+          navigator.clipboard.writeText(activeToolForModal.url);
+          showToast("Lien copié !", "🔗");
+        }
+      });
+
+      document.getElementById('modal-fav-toggle')?.addEventListener('click', () => {
+        if (activeToolForModal) {
+          toggleFavorite(activeToolForModal.id);
+        }
+      });
+
+      document.getElementById('btn-copy-cheatsheet')?.addEventListener('click', () => {
+        if (activeToolForModal?.cheatSheet) {
+          navigator.clipboard.writeText(activeToolForModal.cheatSheet);
+          showToast("CheatSheet copié dans le presse-papier !", "📋");
+        }
+      });
+
+      // MODALE SUGGÉRER
+      const suggestModal = document.getElementById('suggest-modal');
+      const suggestForm = document.getElementById('suggest-form') as HTMLFormElement;
+
       document.getElementById('open-suggest-modal')?.addEventListener('click', () => {
-        const m = document.getElementById('suggest-modal');
-        m?.classList.remove('hidden');
-        setTimeout(() => m?.classList.remove('opacity-0'), 10);
+        suggestModal?.classList.remove('hidden');
+        setTimeout(() => suggestModal?.classList.remove('opacity-0'), 10);
       });
+
       document.getElementById('close-modal')?.addEventListener('click', closeAllModals);
 
-      updateFavIcons();
-      filterTools();
+      suggestForm?.addEventListener('submit', async (e) => {
+        e.preventDefault();
+
+        const payload = {
+          name: (document.getElementById('suggest-name') as HTMLInputElement)?.value || '',
+          url: (document.getElementById('suggest-url') as HTMLInputElement)?.value || '',
+          source: (document.getElementById('suggest-source') as HTMLSelectElement)?.value || 'free_for_dev',
+          category: (document.getElementById('suggest-cat') as HTMLInputElement)?.value || '',
+          description: (document.getElementById('suggest-desc') as HTMLTextAreaElement)?.value || '',
+        };
+
+        try {
+          const response = await fetch('/api/suggest', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload),
+          });
+
+          if (response.ok) {
+            closeAllModals();
+            showToast("Suggestion envoyée avec succès !", "🎉");
+            suggestForm.reset();
+          } else {
+            showToast("Erreur lors de l'envoi", "⚠️");
+          }
+        } catch {
+          showToast("Erreur réseau", "❌");
+        }
+      });
+
+      updateFavoritesUI();
+      filterAndDisplay();
     </script>
   </body>
 </html>
