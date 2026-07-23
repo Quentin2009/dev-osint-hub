@@ -1,4 +1,4 @@
-# ⚡ Dev & OSINT Vault (`Vault.dev`)
+# ⚡ Dev & OSINT Vault (`https://dev-osint-hub.vercel.app/`)
 
 > **Le répertoire ultime, ultra-rapide et interactif de ressources gratuites pour Développeurs et Chercheurs OSINT.**
 
