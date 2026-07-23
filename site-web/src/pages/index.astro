@@ -8,10 +8,48 @@ const cleanText = (str) => {
   return str.replace(/\[↑\]\([^)]+\)/g, '').trim();
 };
 
+// Enrichissement automatique des outils (Tags, Modèle économique, Clé API, Cheat Sheet)
+const enrichedTools = toolsData.map((tool, index) => {
+  const cat = cleanText(tool.category).toLowerCase();
+  const desc = (tool.description || '').toLowerCase();
+  const url = (tool.url || '').toLowerCase();
+  const title = tool.title || '';
+
+  // Heuristiques de catégorisation technique
+  const isCli = cat.includes('cli') || cat.includes('terminal') || desc.includes('command line') || desc.includes('python');
+  const isGithub = url.includes('github.com') || url.includes('gitlab.com');
+  const requiresApi = desc.includes('api key') || desc.includes('clé api') || desc.includes('token') || desc.includes('shodan');
+
+  // Modèle économique
+  let pricing = 'Gratuit';
+  if (isGithub) pricing = 'Open Source';
+  else if (desc.includes('freemium') || desc.includes('free tier')) pricing = 'Freemium';
+
+  // Type d'application
+  let appType = isCli ? 'CLI / Terminal' : 'Web App';
+
+  // Aide-mémoire / Flags CLI générés
+  const cleanTitle = title.toLowerCase().replace(/[^a-z0-9]/g, '');
+  let cheatSheet = isCli
+    ? `${cleanTitle} --help\n${cleanTitle} -u target_user --output json`
+    : `curl -s "${tool.url}" | grep "status"`;
+
+  return {
+    ...tool,
+    id: index,
+    cleanCategory: cleanText(tool.category),
+    safeDesc: tool.description || "Aucune description disponible.",
+    pricing,
+    appType,
+    requiresApi,
+    cheatSheet
+  };
+});
+
 // Statistiques globales du Vault
-const totalTools = toolsData.length;
-const freeDevTools = toolsData.filter(i => i.source === 'free_for_dev');
-const osintTools = toolsData.filter(i => i.source === 'awesome_osint');
+const totalTools = enrichedTools.length;
+const freeDevTools = enrichedTools.filter(i => i.source === 'free_for_dev');
+const osintTools = enrichedTools.filter(i => i.source === 'awesome_osint');
 
 const freeDevCount = freeDevTools.length;
 const osintCount = osintTools.length;
@@ -21,24 +59,64 @@ const freeDevPercent = Math.round((freeDevCount / totalTools) * 100);
 const osintPercent = Math.round((osintCount / totalTools) * 100);
 
 // Catégories uniques
-const freeDevCategories = [...new Set(freeDevTools.map(i => cleanText(i.category)))].filter(Boolean).sort();
-const osintCategories = [...new Set(osintTools.map(i => cleanText(i.category)))].filter(Boolean).sort();
-const allCategoriesCount = [...new Set(toolsData.map(i => cleanText(i.category)))].filter(Boolean).length;
+const freeDevCategories = [...new Set(freeDevTools.map(i => i.cleanCategory))].filter(Boolean).sort();
+const osintCategories = [...new Set(osintTools.map(i => i.cleanCategory))].filter(Boolean).sort();
+const allCategoriesCount = [...new Set(enrichedTools.map(i => i.cleanCategory))].filter(Boolean).length;
 ---
 
 <html lang="fr" class="dark">
   <head>
     <meta charset="utf-8" />
-    <title>Dev & OSINT Vault</title>
+    <title>Dev & OSINT Vault - Répertoire Ultime de Ressources</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="description" content="Répertoire ultime de ressources gratuites pour développeurs et chercheurs OSINT." />
+    <meta name="description" content="Répertoire de ressources gratuites pour développeurs et chercheurs OSINT." />
+    
+    <!-- PWA Manifest & Theme -->
+    <link rel="manifest" href="/manifest.json" />
+    <meta name="theme-color" content="#0f172a" />
+
+    <!-- Open Graph -->
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Dev & OSINT Vault" />
+    <meta property="og:description" content="Répertoire ultime de ressources pour devs et OSINT." />
+
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet">
+
+    <style>
+      body.view-list #tools-grid {
+        display: flex !important;
+        flex-direction: column !important;
+        gap: 0.75rem !important;
+      }
+      body.view-list .tool-card {
+        flex-direction: row !important;
+        align-items: center !important;
+        justify-content: space-between !important;
+        padding: 0.85rem 1.25rem !important;
+      }
+      body.view-list .tool-card > div:first-child {
+        flex: 1;
+        margin-right: 1.5rem;
+      }
+      body.view-list .tool-card .card-desc {
+        -webkit-line-clamp: 1 !important;
+        margin-bottom: 0 !important;
+      }
+      body.view-list .tool-card .visit-btn {
+        width: auto !important;
+        padding: 0.5rem 1rem !important;
+        white-space: nowrap;
+      }
+      kbd {
+        box-shadow: inset 0 -1px 0 rgba(255, 255, 255, 0.2);
+      }
+    </style>
   </head>
   <body class="bg-slate-950 text-slate-100 min-h-screen font-['Inter',sans-serif] antialiased pt-20 selection:bg-blue-500 selection:text-white flex flex-col justify-between">
     
-    <!-- Background Gradient -->
+    <!-- Background Ambient Gradient -->
     <div class="fixed inset-0 bg-[radial-gradient(ellipse_80%_80%_at_50%_-20%,rgba(59,130,246,0.15),rgba(255,255,255,0))] pointer-events-none"></div>
 
     <!-- Notification Toast -->
@@ -51,37 +129,136 @@ const allCategoriesCount = [...new Set(toolsData.map(i => cleanText(i.category))
       <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 15l7-7 7 7"></path></svg>
     </button>
 
+    <!-- PALETTE DE COMMANDE (CTRL + K) -->
+    <div id="command-palette" class="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-md hidden opacity-0 transition-opacity duration-200 flex items-start justify-center pt-20 px-4">
+      <div class="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-xl shadow-2xl overflow-hidden relative transform scale-95 transition-transform duration-200">
+        <div class="p-4 border-b border-slate-800 flex items-center gap-3">
+          <span class="text-slate-400">⚡</span>
+          <input type="text" id="palette-input" placeholder="Tapez une commande ou un outil..." class="w-full bg-transparent text-white focus:outline-none text-sm placeholder-slate-500 font-medium" />
+          <kbd class="text-[10px] bg-slate-800 border border-slate-700 text-slate-400 px-2 py-0.5 rounded font-mono">ESC</kbd>
+        </div>
+        <div class="p-2 max-h-80 overflow-y-auto divide-y divide-slate-800/50" id="palette-results">
+          <!-- Actions Rapides -->
+          <div class="p-2 text-[10px] font-bold uppercase tracking-wider text-slate-500">Actions système</div>
+          <button class="palette-item w-full text-left px-3 py-2 rounded-xl text-sm text-slate-200 hover:bg-blue-600 hover:text-white flex items-center justify-between transition" data-action="random">
+            <span>🎲 Tirer un outil au hasard</span>
+            <kbd class="text-[10px] bg-slate-950 px-1.5 py-0.5 rounded text-slate-400 font-mono">R</kbd>
+          </button>
+          <button class="palette-item w-full text-left px-3 py-2 rounded-xl text-sm text-slate-200 hover:bg-blue-600 hover:text-white flex items-center justify-between transition" data-action="favs">
+            <span>⭐ Afficher mes favoris</span>
+            <span class="text-xs text-slate-400">Filtre</span>
+          </button>
+          <button class="palette-item w-full text-left px-3 py-2 rounded-xl text-sm text-slate-200 hover:bg-blue-600 hover:text-white flex items-center justify-between transition" data-action="export-md">
+            <span>📤 Exporter mes favoris (.md)</span>
+            <span class="text-xs text-slate-400">Download</span>
+          </button>
+          <button class="palette-item w-full text-left px-3 py-2 rounded-xl text-sm text-slate-200 hover:bg-blue-600 hover:text-white flex items-center justify-between transition" data-action="share-stack">
+            <span>🔗 Copier le lien de ma sélection</span>
+            <span class="text-xs text-slate-400">URL</span>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- MODALE FICHE DÉTAILLÉE DE L'OUTIL -->
+    <div id="details-modal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md hidden opacity-0 transition-opacity duration-200">
+      <div class="bg-slate-900 border border-slate-800 rounded-3xl p-6 sm:p-8 w-full max-w-2xl shadow-2xl relative transform scale-95 transition-transform duration-200 max-h-[90vh] overflow-y-auto scrollbar-thin">
+        
+        <button id="close-details-modal" class="absolute top-5 right-5 text-slate-400 hover:text-white text-xl transition bg-slate-800 hover:bg-slate-700 w-8 h-8 rounded-full flex items-center justify-center">✕</button>
+
+        <!-- En-tête Modale -->
+        <div class="flex items-start gap-4 mb-4">
+          <div class="p-3 bg-blue-500/10 border border-blue-500/20 rounded-2xl text-2xl">
+            🛠️
+          </div>
+          <div class="pr-6">
+            <div class="flex flex-wrap items-center gap-2 mb-1">
+              <span id="modal-source-badge" class="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded"></span>
+              <span id="modal-cat-badge" class="text-[11px] font-semibold px-2.5 py-0.5 rounded-md bg-slate-800 text-slate-300 border border-slate-700/50"></span>
+              <span id="modal-pricing-badge" class="text-[10px] font-bold px-2 py-0.5 rounded bg-emerald-950 text-emerald-400 border border-emerald-800/50"></span>
+              <span id="modal-api-badge" class="text-[10px] font-bold px-2 py-0.5 rounded bg-amber-950 text-amber-400 border border-amber-800/50 hidden">🔑 API Requise</span>
+            </div>
+            <h2 id="modal-title" class="text-2xl sm:text-3xl font-extrabold text-white"></h2>
+          </div>
+        </div>
+
+        <!-- Description -->
+        <p id="modal-desc" class="text-slate-300 text-sm sm:text-base leading-relaxed mb-6 bg-slate-950/60 p-4 rounded-2xl border border-slate-800/80"></p>
+
+        <!-- Terminal & Cheat Sheet -->
+        <div class="mb-6 space-y-3">
+          <div>
+            <div class="flex justify-between items-center mb-1.5">
+              <span class="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
+                <span>💻</span> Commande d'installation / rapide
+              </span>
+              <button id="btn-copy-command" class="text-xs text-blue-400 hover:text-blue-300 font-semibold flex items-center gap-1 transition">
+                <span>📋</span> Copier
+              </button>
+            </div>
+            <div class="bg-slate-950 border border-slate-800 rounded-2xl p-3.5 font-mono text-xs text-emerald-400 overflow-x-auto">
+              <code id="modal-command"></code>
+            </div>
+          </div>
+
+          <div>
+            <div class="flex justify-between items-center mb-1.5">
+              <span class="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
+                <span>⚡</span> Aide-mémoire / Options utiles (Cheat Sheet)
+              </span>
+            </div>
+            <div class="bg-slate-950 border border-slate-800 rounded-2xl p-3.5 font-mono text-xs text-slate-300 overflow-x-auto whitespace-pre">
+              <code id="modal-cheatsheet"></code>
+            </div>
+          </div>
+        </div>
+
+        <!-- Outils Similaires -->
+        <div class="mb-8">
+          <h4 class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">
+            💡 Outils similaires dans cette catégorie
+          </h4>
+          <div id="modal-alternatives" class="flex flex-wrap gap-2"></div>
+        </div>
+
+        <!-- Actions -->
+        <div class="flex items-center justify-between gap-3 pt-4 border-t border-slate-800">
+          <button id="modal-fav-btn" class="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold text-xs sm:text-sm transition border border-slate-700">
+            <span>★</span> Favori
+          </button>
+          <a id="modal-visit-btn" href="#" target="_blank" rel="noopener noreferrer" class="flex-1 bg-blue-600 hover:bg-blue-500 text-white font-bold py-2.5 px-5 rounded-xl text-xs sm:text-sm transition flex items-center justify-center gap-1.5 shadow-lg shadow-blue-600/30">
+            Visiter le site officiel ↗
+          </a>
+        </div>
+
+      </div>
+    </div>
+
     <!-- MODALE SUGGÉRER UN OUTIL -->
     <div id="suggest-modal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm hidden opacity-0 transition-opacity duration-200">
-      <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6 w-full max-w-lg shadow-2xl relative transform scale-95 transition-transform duration-200" id="modal-container">
-        
+      <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6 w-full max-w-lg shadow-2xl relative transform scale-95 transition-transform duration-200">
         <button id="close-modal" class="absolute top-4 right-4 text-slate-400 hover:text-white text-xl transition">✕</button>
 
         <h2 class="text-xl font-bold text-white mb-1 flex items-center gap-2">
           <span>💡</span> Proposer un outil
         </h2>
-        <p class="text-xs text-slate-400 mb-5">
-          Connaissez-vous une ressource utile ? Partagez-la via notre API !
-        </p>
+        <p class="text-xs text-slate-400 mb-5">Connaissez-vous une ressource utile ? Partagez-la avec la communauté !</p>
 
         <form id="suggest-form" class="space-y-4">
           <div>
             <label class="block text-xs font-semibold text-slate-300 mb-1">Nom de l'outil *</label>
             <input type="text" id="suggest-name" required placeholder="Ex: CyberChef" class="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-sm text-white focus:outline-none focus:border-blue-500 transition" />
           </div>
-
           <div>
             <label class="block text-xs font-semibold text-slate-300 mb-1">Lien URL *</label>
             <input type="url" id="suggest-url" required placeholder="https://..." class="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-sm text-white focus:outline-none focus:border-blue-500 transition" />
           </div>
-
           <div class="grid grid-cols-2 gap-3">
             <div>
               <label class="block text-xs font-semibold text-slate-300 mb-1">Source *</label>
               <select id="suggest-source" class="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-sm text-white focus:outline-none focus:border-blue-500 transition">
                 <option value="free_for_dev">Free Dev</option>
                 <option value="awesome_osint">OSINT</option>
-                <option value="autre">Autre</option>
               </select>
             </div>
             <div>
@@ -89,19 +266,14 @@ const allCategoriesCount = [...new Set(toolsData.map(i => cleanText(i.category))
               <input type="text" id="suggest-cat" required placeholder="Ex: Encryption" class="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-sm text-white focus:outline-none focus:border-blue-500 transition" />
             </div>
           </div>
-
           <div>
             <label class="block text-xs font-semibold text-slate-300 mb-1">Description courte</label>
-            <textarea id="suggest-desc" rows="3" placeholder="Brève explication du service..." class="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-sm text-white focus:outline-none focus:border-blue-500 resize-none transition"></textarea>
+            <textarea id="suggest-desc" rows="3" placeholder="Brève explication..." class="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-sm text-white focus:outline-none focus:border-blue-500 resize-none transition"></textarea>
           </div>
-
-          <div class="pt-2">
-            <button type="submit" id="submit-suggest" class="w-full bg-blue-600 hover:bg-blue-500 text-white font-semibold py-2.5 rounded-xl text-sm transition flex justify-center items-center gap-2">
-              <span>🚀</span> Envoyer la suggestion
-            </button>
-          </div>
+          <button type="submit" id="submit-suggest" class="w-full bg-blue-600 hover:bg-blue-500 text-white font-semibold py-2.5 rounded-xl text-sm transition flex justify-center items-center gap-2">
+            <span>🚀</span> Envoyer la suggestion
+          </button>
         </form>
-
       </div>
     </div>
 
@@ -116,7 +288,7 @@ const allCategoriesCount = [...new Set(toolsData.map(i => cleanText(i.category))
 
         <!-- Menu Navigation Central -->
         <nav class="hidden md:flex items-center gap-1 text-sm font-medium">
-          <button class="nav-filter-btn active px-3 py-1.5 rounded-lg text-slate-300 hover:text-white hover:bg-slate-800 transition" data-source="ALL" data-cat="ALL" data-i18n="navAll">
+          <button class="nav-filter-btn active px-3 py-1.5 rounded-lg text-slate-300 hover:text-white hover:bg-slate-800 transition" data-source="ALL" data-cat="ALL">
             Tout afficher
           </button>
 
@@ -128,7 +300,7 @@ const allCategoriesCount = [...new Set(toolsData.map(i => cleanText(i.category))
             </button>
             <div class="absolute left-0 top-full pt-2 hidden group-hover:block w-64">
               <div class="bg-slate-900 border border-slate-800 rounded-xl shadow-2xl p-2 max-h-80 overflow-y-auto scrollbar-thin">
-                <button class="nav-filter-btn w-full text-left px-3 py-1.5 rounded-lg text-xs font-semibold text-emerald-400 hover:bg-emerald-950/50 transition mb-1" data-source="free_for_dev" data-cat="ALL" data-i18n="allFreeDev">Toutes les catégories Free Dev</button>
+                <button class="nav-filter-btn w-full text-left px-3 py-1.5 rounded-lg text-xs font-semibold text-emerald-400 hover:bg-emerald-950/50 transition mb-1" data-source="free_for_dev" data-cat="ALL">Toutes les catégories Free Dev</button>
                 <div class="h-px bg-slate-800 my-1"></div>
                 {freeDevCategories.map(cat => (
                   <button class="nav-filter-btn w-full text-left px-3 py-1.5 rounded-lg text-xs text-slate-400 hover:text-white hover:bg-slate-800 truncate transition" data-source="free_for_dev" data-cat={cat}>{cat}</button>
@@ -145,7 +317,7 @@ const allCategoriesCount = [...new Set(toolsData.map(i => cleanText(i.category))
             </button>
             <div class="absolute left-0 top-full pt-2 hidden group-hover:block w-64">
               <div class="bg-slate-900 border border-slate-800 rounded-xl shadow-2xl p-2 max-h-80 overflow-y-auto scrollbar-thin">
-                <button class="nav-filter-btn w-full text-left px-3 py-1.5 rounded-lg text-xs font-semibold text-purple-400 hover:bg-purple-950/50 transition mb-1" data-source="awesome_osint" data-cat="ALL" data-i18n="allOsint">Toutes les catégories OSINT</button>
+                <button class="nav-filter-btn w-full text-left px-3 py-1.5 rounded-lg text-xs font-semibold text-purple-400 hover:bg-purple-950/50 transition mb-1" data-source="awesome_osint" data-cat="ALL">Toutes les catégories OSINT</button>
                 <div class="h-px bg-slate-800 my-1"></div>
                 {osintCategories.map(cat => (
                   <button class="nav-filter-btn w-full text-left px-3 py-1.5 rounded-lg text-xs text-slate-400 hover:text-white hover:bg-slate-800 truncate transition" data-source="awesome_osint" data-cat={cat}>{cat}</button>
@@ -157,25 +329,24 @@ const allCategoriesCount = [...new Set(toolsData.map(i => cleanText(i.category))
           <!-- FAVORIS & EXPORT -->
           <div class="flex items-center gap-1 bg-slate-950 border border-slate-800 rounded-xl p-0.5 ml-2">
             <button id="btn-fav-toggle" class="flex items-center gap-1.5 px-3 py-1 rounded-lg text-yellow-400 hover:bg-yellow-400/10 transition">
-              <span>⭐</span> <span data-i18n="favOnly">Favoris</span>
+              <span>⭐</span> <span>Favoris</span>
               <span id="fav-badge" class="text-[10px] bg-yellow-500/20 text-yellow-300 px-1.5 py-0.5 rounded-full">0</span>
             </button>
-            <div class="w-px h-4 bg-slate-800"></div>
-            <button id="btn-export-fav" class="flex items-center gap-1 px-2.5 py-1 text-slate-400 hover:text-white transition text-xs font-semibold" title="Exporter les favoris en .txt">
-              📥 Exporter
-            </button>
+            <button id="btn-export-md" class="px-2 py-1 text-slate-400 hover:text-white transition" title="Exporter en Markdown (.md)">📤</button>
+            <button id="btn-share-stack" class="px-2 py-1 text-slate-400 hover:text-white transition" title="Copier lien de ma sélection">🔗</button>
           </div>
         </nav>
 
         <!-- Actions Droite -->
         <div class="flex items-center gap-2 shrink-0">
+          <button id="trigger-palette" class="hidden sm:flex items-center gap-2 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs px-3 py-1.5 rounded-xl border border-slate-700 transition">
+            <span>🔍 Rechercher...</span>
+            <kbd class="text-[10px] bg-slate-950 px-1.5 py-0.5 rounded text-slate-400 font-mono">⌘K</kbd>
+          </button>
+
           <button id="open-suggest-modal" class="hidden sm:flex items-center gap-1.5 bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold px-3 py-2 rounded-xl transition shadow-lg shadow-blue-600/20">
             ➕ Suggérer
           </button>
-          <div class="flex items-center bg-slate-950 border border-slate-800 rounded-xl p-1 gap-1">
-            <button class="lang-btn active px-2.5 py-1 text-xs font-bold rounded-lg transition" data-lang="fr">FR</button>
-            <button class="lang-btn px-2.5 py-1 text-xs font-bold rounded-lg text-slate-400 hover:text-white transition" data-lang="en">EN</button>
-          </div>
         </div>
 
       </div>
@@ -189,18 +360,32 @@ const allCategoriesCount = [...new Set(toolsData.map(i => cleanText(i.category))
         <h1 class="text-3xl sm:text-5xl font-extrabold tracking-tight text-white mb-3">
           Dev & OSINT <span class="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 via-teal-400 to-emerald-400">Vault</span>
         </h1>
-        <p class="text-slate-400 text-sm sm:text-base" data-i18n="subtitle">
-          Trouvez instantanément les meilleures ressources gratuites pour devs et chercheurs OSINT.
+        <p class="text-slate-400 text-sm sm:text-base">
+          Trouvez instantanément les meilleures ressources pour développeurs et chercheurs OSINT.
         </p>
 
+        <!-- Barre de recherche -->
         <div class="mt-6 relative max-w-2xl mx-auto">
           <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-slate-500">🔍</div>
           <input 
             type="text" 
             id="search-input" 
-            placeholder="Rechercher un outil (ex: github, geoloc, cyber)..." 
-            class="w-full pl-11 pr-4 py-3.5 rounded-2xl bg-slate-900/90 border border-slate-800 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 transition shadow-xl"
+            placeholder="Rechercher un outil, une catégorie, ou tapez '/'..." 
+            class="w-full pl-11 pr-16 py-3.5 rounded-2xl bg-slate-900/90 border border-slate-800 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 transition shadow-xl text-sm"
           />
+          <div class="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
+            <kbd class="text-[10px] bg-slate-800 border border-slate-700 text-slate-400 px-2 py-1 rounded font-mono">/ Focus</kbd>
+          </div>
+        </div>
+
+        <!-- Quick Chips & Random -->
+        <div class="flex flex-wrap items-center justify-center gap-2 mt-4 text-xs font-medium">
+          <button class="quick-chip active px-3 py-1.5 rounded-xl bg-slate-900 border border-slate-800 hover:border-blue-500 text-slate-300 transition" data-source="ALL" data-cat="ALL">⚡ Tout</button>
+          <button class="quick-chip px-3 py-1.5 rounded-xl bg-slate-900 border border-slate-800 hover:border-emerald-500 text-emerald-400 transition" data-source="free_for_dev" data-cat="ALL">🟢 Free Dev</button>
+          <button class="quick-chip px-3 py-1.5 rounded-xl bg-slate-900 border border-slate-800 hover:border-purple-500 text-purple-400 transition" data-source="awesome_osint" data-cat="ALL">🟣 OSINT</button>
+          <button id="btn-random-trigger" class="px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-bold transition flex items-center gap-1.5 shadow-md shadow-blue-500/20">
+            🎲 Surprenez-moi ! <kbd class="text-[9px] bg-white/20 px-1 rounded font-mono">R</kbd>
+          </button>
         </div>
       </section>
 
@@ -236,57 +421,66 @@ const allCategoriesCount = [...new Set(toolsData.map(i => cleanText(i.category))
         </div>
       </section>
 
-      <!-- Barre de contrôle (Filtres, Tri et Compteur) -->
+      <!-- BARRE DE CONTRÔLE -->
       <div class="flex flex-wrap justify-between items-center mb-6 px-1 gap-4 bg-slate-900/50 p-3 rounded-xl border border-slate-800">
         <div id="active-filter-indicator" class="text-xs text-blue-400 bg-blue-500/10 border border-blue-500/20 px-3 py-1.5 rounded-lg hidden">
           Filtre : <span id="filter-name-text" class="font-bold"></span>
         </div>
         
-        <div class="flex items-center gap-4 ml-auto w-full sm:w-auto justify-between sm:justify-end">
-          <!-- TRI SELECTOR -->
-          <div class="flex items-center gap-2">
-            <label for="sort-select" class="text-xs text-slate-400 font-semibold hidden sm:block">Trier :</label>
-            <select id="sort-select" class="bg-slate-950 border border-slate-700 text-slate-300 text-xs rounded-lg px-2 py-1.5 focus:outline-none focus:border-blue-500 transition cursor-pointer">
-              <option value="default">Par pertinence</option>
-              <option value="az">Alphabétique (A-Z)</option>
-              <option value="za">Alphabétique (Z-A)</option>
-            </select>
+        <div class="flex items-center gap-3 ml-auto w-full sm:w-auto justify-between sm:justify-end">
+          <!-- VUE GRILLE / LISTE -->
+          <div class="flex items-center bg-slate-950 border border-slate-800 rounded-lg p-0.5">
+            <button id="btn-view-grid" class="p-1.5 rounded-md text-slate-400 hover:text-white transition" title="Vue Grille">
+              <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path d="M5 3a2 2 0 00-2 2v2a2 2 0 002 2h2a2 2 0 002-2V5a2 2 0 00-2-2H5zM5 11a2 2 0 00-2 2v2a2 2 0 002 2h2a2 2 0 002-2v-2a2 2 0 00-2-2H5zM11 5a2 2 0 002-2h2a2 2 0 002 2v2a2 2 0 00-2 2h-2a2 2 0 00-2-2V5zM11 13a2 2 0 002-2h2a2 2 0 002 2v2a2 2 0 00-2 2h-2a2 2 0 00-2-2v-2z"></path></svg>
+            </button>
+            <button id="btn-view-list" class="p-1.5 rounded-md text-slate-400 hover:text-white transition" title="Vue Liste Compacte">
+              <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M3 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1z" clip-rule="evenodd"></path></svg>
+            </button>
           </div>
+
+          <!-- TRI -->
+          <select id="sort-select" class="bg-slate-950 border border-slate-700 text-slate-300 text-xs rounded-lg px-2 py-1.5 focus:outline-none focus:border-blue-500 transition cursor-pointer">
+            <option value="default">Par pertinence</option>
+            <option value="az">Alphabétique (A-Z)</option>
+            <option value="za">Alphabétique (Z-A)</option>
+          </select>
           
           <span id="counter" class="text-sm font-medium text-slate-400">
-            Affichage de <strong class="text-white">{toolsData.length}</strong> ressources
+            Affichage de <strong class="text-white">{enrichedTools.length}</strong> ressources
           </span>
         </div>
       </div>
 
-      <!-- Grille des Cartes -->
+      <!-- GRILLE DES CARTES -->
       <main>
-        <div id="tools-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 flex-wrap">
-          {toolsData.map((tool, index) => {
-            const cleanedCat = cleanText(tool.category);
+        <div id="tools-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 transition-all">
+          {enrichedTools.map((tool) => {
             const isFreeDev = tool.source === 'free_for_dev';
-            const isOsint = tool.source === 'awesome_osint';
-            const safeDesc = tool.description || "Aucune description disponible.";
 
             return (
               <div 
-                class="tool-card group relative bg-slate-900/50 border border-slate-800 hover:border-slate-700 rounded-2xl p-5 transition-all duration-200 flex flex-col justify-between backdrop-blur-sm"
-                data-id={index}
+                class="tool-card group relative bg-slate-900/50 border border-slate-800 hover:border-blue-500/50 rounded-2xl p-5 transition-all duration-200 flex flex-col justify-between backdrop-blur-sm cursor-pointer hover:shadow-xl hover:shadow-blue-500/5"
+                data-id={tool.id}
                 data-title={tool.title} 
-                data-desc={safeDesc} 
-                data-cat={cleanedCat}
+                data-desc={tool.safeDesc} 
+                data-cat={tool.cleanCategory}
                 data-source={tool.source}
                 data-url={tool.url}
               >
                 <div>
                   <div class="flex items-center justify-between gap-2 mb-3">
-                    <span class="text-[11px] font-semibold px-2.5 py-1 rounded-md bg-slate-800 text-slate-300 border border-slate-700/50 truncate max-w-[150px]">
-                      {cleanedCat}
-                    </span>
+                    <div class="flex items-center gap-1.5 overflow-hidden">
+                      <span class="text-[11px] font-semibold px-2.5 py-0.5 rounded-md bg-slate-800 text-slate-300 border border-slate-700/50 truncate max-w-[120px]">
+                        {tool.cleanCategory}
+                      </span>
+                      <span class="text-[10px] font-bold px-1.5 py-0.5 rounded bg-slate-950 text-slate-400 border border-slate-800">
+                        {tool.pricing}
+                      </span>
+                    </div>
                     
-                    <div class="flex items-center gap-2">
-                      <button class="copy-btn text-slate-500 hover:text-blue-400 transition text-sm" data-url={tool.url} title="Copier le lien">🔗</button>
-                      <button class="fav-btn text-slate-600 hover:text-yellow-400 transition text-lg" data-id={index} title="Favori">★</button>
+                    <div class="flex items-center gap-2 shrink-0">
+                      <button class="copy-btn text-slate-500 hover:text-blue-400 transition text-sm p-1" data-url={tool.url} title="Copier le lien">🔗</button>
+                      <button class="fav-btn text-slate-600 hover:text-yellow-400 transition text-lg p-1" data-id={tool.id} title="Favori">★</button>
                       <span class={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded ${
                         isFreeDev ? 'bg-emerald-950 text-emerald-400 border border-emerald-800/50' : 'bg-purple-950 text-purple-400 border border-purple-800/50'
                       }`}>
@@ -295,13 +489,13 @@ const allCategoriesCount = [...new Set(toolsData.map(i => cleanText(i.category))
                     </div>
                   </div>
 
-                  <!-- Classes .card-title et .card-desc ajoutées pour le surlignage JS -->
-                  <h3 class="card-title text-lg font-bold text-white group-hover:text-blue-400 transition-colors mb-2">
-                    {tool.title}
+                  <h3 class="card-title text-lg font-bold text-white group-hover:text-blue-400 transition-colors mb-2 flex items-center justify-between">
+                    <span>{tool.title}</span>
+                    <span class="text-xs text-slate-500 font-normal group-hover:text-blue-400 transition-colors">Détails ℹ️</span>
                   </h3>
                   
                   <p class="card-desc text-slate-400 text-sm leading-relaxed line-clamp-3 mb-4">
-                    {safeDesc}
+                    {tool.safeDesc}
                   </p>
                 </div>
 
@@ -309,9 +503,9 @@ const allCategoriesCount = [...new Set(toolsData.map(i => cleanText(i.category))
                   href={tool.url} 
                   target="_blank" 
                   rel="noopener noreferrer" 
-                  class="inline-flex items-center justify-center gap-2 w-full py-2.5 px-4 rounded-xl bg-slate-800 hover:bg-blue-600 text-slate-200 hover:text-white text-sm font-semibold transition border border-slate-700/50 hover:border-blue-500"
+                  class="visit-btn inline-flex items-center justify-center gap-2 w-full py-2.5 px-4 rounded-xl bg-slate-800 hover:bg-blue-600 text-slate-200 hover:text-white text-sm font-semibold transition border border-slate-700/50 hover:border-blue-500"
                 >
-                  <span data-i18n="visitBtn">Visiter le site</span> ↗
+                  <span>Visiter le site</span> ↗
                 </a>
               </div>
             );
@@ -327,35 +521,12 @@ const allCategoriesCount = [...new Set(toolsData.map(i => cleanText(i.category))
 
     </div>
 
-    <!-- Script complet Engine & Interactivity -->
+    <!-- SCRIPT ENGINE -->
     <script>
       import Fuse from 'fuse.js';
 
-      const i18n = {
-        fr: {
-          subtitle: "Trouvez instantanément les meilleures ressources gratuites pour devs et chercheurs OSINT.",
-          searchPlaceholder: "Rechercher un outil (ex: github, geoloc, cyber)...",
-          navAll: "Tout afficher",
-          allFreeDev: "Toutes les catégories Free Dev",
-          allOsint: "Toutes les catégories OSINT",
-          favOnly: "Favoris",
-          visitBtn: "Visiter le site",
-          counterText: (shown, total) => `Affichage de <strong class="text-white">${shown}</strong> sur <strong class="text-white">${total}</strong> ressources`
-        },
-        en: {
-          subtitle: "Instantly find the best free resources for devs and OSINT researchers.",
-          searchPlaceholder: "Search for a tool (ex: github, geoloc, cyber)...",
-          navAll: "Show All",
-          allFreeDev: "All Free Dev categories",
-          allOsint: "All OSINT categories",
-          favOnly: "Favorites",
-          visitBtn: "Visit Site",
-          counterText: (shown, total) => `Showing <strong class="text-white">${shown}</strong> of <strong class="text-white">${total}</strong> resources`
-        }
-      };
-
-      // States
-      let currentLang = 'fr';
+      // Pass tools data to client script
+      let currentView = localStorage.getItem('vault_view') || 'grid';
       let selectedSource = 'ALL';
       let selectedCategory = 'ALL';
       let currentSort = 'default';
@@ -364,8 +535,8 @@ const allCategoriesCount = [...new Set(toolsData.map(i => cleanText(i.category))
       
       const pageSize = 30;
       let visibleLimit = pageSize;
+      let activeDetailToolId = null;
 
-      // DOM Elements
       const cards = Array.from(document.querySelectorAll('.tool-card')) as HTMLElement[];
       const input = document.getElementById('search-input') as HTMLInputElement;
       const counter = document.getElementById('counter');
@@ -379,7 +550,31 @@ const allCategoriesCount = [...new Set(toolsData.map(i => cleanText(i.category))
       const toastIcon = document.getElementById('toast-icon');
       const backToTopBtn = document.getElementById('back-to-top');
 
-      // Helper: Toast
+      // Modale Détails
+      const detailsModal = document.getElementById('details-modal');
+      const modalTitle = document.getElementById('modal-title');
+      const modalDesc = document.getElementById('modal-desc');
+      const modalCatBadge = document.getElementById('modal-cat-badge');
+      const modalSourceBadge = document.getElementById('modal-source-badge');
+      const modalPricingBadge = document.getElementById('modal-pricing-badge');
+      const modalApiBadge = document.getElementById('modal-api-badge');
+      const modalCommand = document.getElementById('modal-command');
+      const modalCheatsheet = document.getElementById('modal-cheatsheet');
+      const modalAlternatives = document.getElementById('modal-alternatives');
+      const modalVisitBtn = document.getElementById('modal-visit-btn') as HTMLAnchorElement;
+      const modalFavBtn = document.getElementById('modal-fav-btn');
+
+      // Palette de commande
+      const commandPalette = document.getElementById('command-palette');
+      const paletteInput = document.getElementById('palette-input') as HTMLInputElement;
+
+      // Registration PWA Service Worker
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+          navigator.serviceWorker.register('/sw.js').catch(() => {});
+        });
+      }
+
       function showToast(msg, isError = false) {
         if (toast && toastMessage && toastIcon) {
           toastMessage.textContent = msg;
@@ -389,97 +584,278 @@ const allCategoriesCount = [...new Set(toolsData.map(i => cleanText(i.category))
         }
       }
 
-      // Helper: Highlight Words
-      function highlightText(element, rawText, queryWords) {
-        if (!queryWords || queryWords.length === 0) {
-          element.innerHTML = rawText; // Reset normal text
+      // Vue Grille vs Liste
+      const viewGridBtn = document.getElementById('btn-view-grid');
+      const viewListBtn = document.getElementById('btn-view-list');
+
+      function setView(view) {
+        currentView = view;
+        localStorage.setItem('vault_view', view);
+        if (view === 'list') {
+          document.body.classList.add('view-list');
+          viewListBtn?.classList.add('bg-slate-800', 'text-blue-400');
+          viewGridBtn?.classList.remove('bg-slate-800', 'text-blue-400');
+        } else {
+          document.body.classList.remove('view-list');
+          viewGridBtn?.classList.add('bg-slate-800', 'text-blue-400');
+          viewListBtn?.classList.remove('bg-slate-800', 'text-blue-400');
+        }
+      }
+      viewGridBtn?.addEventListener('click', () => setView('grid'));
+      viewListBtn?.addEventListener('click', () => setView('list'));
+      setView(currentView);
+
+      // Preparation des données pour Fuse.js
+      const toolsData = cards.map((card) => {
+        const id = card.getAttribute('data-id') || '0';
+        const title = card.getAttribute('data-title') || '';
+        const desc = card.getAttribute('data-desc') || '';
+        const cat = card.getAttribute('data-cat') || '';
+        const source = card.getAttribute('data-source') || '';
+        const url = card.getAttribute('data-url') || '';
+        const isCli = cat.toLowerCase().includes('cli') || desc.toLowerCase().includes('python');
+        const requiresApi = desc.toLowerCase().includes('api key') || desc.toLowerCase().includes('shodan');
+
+        return {
+          id,
+          index: parseInt(id, 10),
+          title,
+          desc,
+          cat,
+          source,
+          url,
+          pricing: url.includes('github.com') ? 'Open Source' : 'Gratuit',
+          requiresApi,
+          cheatSheet: isCli ? `${title.toLowerCase()} --help\n${title.toLowerCase()} -u target_user` : `curl -s "${url}"`
+        };
+      });
+
+      // RACCOURCIS CLAVIER GLOBATUX (Ctrl+K, Esc, /, R)
+      document.addEventListener('keydown', (e) => {
+        const activeTag = document.activeElement?.tagName.toLowerCase();
+        const isInput = activeTag === 'input' || activeTag === 'textarea' || activeTag === 'select';
+
+        // Ctrl+K / Cmd+K
+        if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
+          e.preventDefault();
+          toggleCommandPalette();
           return;
         }
-        // Regex pour trouver les mots sans casser l'HTML, de façon sécurisée
-        const regex = new RegExp(`(${queryWords.join('|')})`, 'gi');
-        const highlighted = rawText.replace(regex, '<span class="text-yellow-900 bg-yellow-400 px-0.5 rounded font-bold">$&</span>');
-        element.innerHTML = highlighted;
-      }
 
-      // Bouton Retour en haut
-      window.addEventListener('scroll', () => {
-        if (window.scrollY > 400) backToTopBtn?.classList.remove('opacity-0', 'pointer-events-none');
-        else backToTopBtn?.classList.add('opacity-0', 'pointer-events-none');
-      });
-      backToTopBtn?.addEventListener('click', () => window.scrollTo({ top: 0, behavior: 'smooth' }));
+        // Escape -> Fermer tout
+        if (e.key === 'Escape') {
+          closeAllModals();
+          return;
+        }
 
-      // API FORMSPREE (Envoi du formulaire silencieux)
-      const suggestForm = document.getElementById('suggest-form') as HTMLFormElement;
-      suggestForm?.addEventListener('submit', async (e) => {
-        e.preventDefault();
-        const submitBtn = suggestForm.querySelector('button[type="submit"]') as HTMLButtonElement;
-        const originalText = submitBtn.innerHTML;
-        
-        submitBtn.innerHTML = "⏳ Envoi en cours...";
-        submitBtn.disabled = true;
-
-        const formData = new FormData();
-        formData.append("Titre", (document.getElementById('suggest-name') as HTMLInputElement).value);
-        formData.append("URL", (document.getElementById('suggest-url') as HTMLInputElement).value);
-        formData.append("Source", (document.getElementById('suggest-source') as HTMLSelectElement).value);
-        formData.append("Catégorie", (document.getElementById('suggest-cat') as HTMLInputElement).value);
-        formData.append("Description", (document.getElementById('suggest-desc') as HTMLTextAreaElement).value);
-
-        try {
-          // ⚠️ IMPORTANT : Remplace cette URL par celle que te donnera formspree.io
-          const response = await fetch("https://formspree.io/f/xojgnlky", {
-            method: "POST",
-            body: formData,
-            headers: { 'Accept': 'application/json' }
-          });
-
-          if (response.ok) {
-            showToast("Suggestion envoyée avec succès !");
-            document.getElementById('suggest-modal')?.classList.add('hidden');
-            suggestForm.reset();
-          } else {
-            showToast("Erreur lors de l'envoi du formulaire.", true);
+        if (!isInput) {
+          // Focus Recherche "/"
+          if (e.key === '/') {
+            e.preventDefault();
+            input?.focus();
           }
-        } catch (error) {
-          showToast("Serveur injoignable. Réessayez plus tard.", true);
-        } finally {
-          submitBtn.innerHTML = originalText;
-          submitBtn.disabled = false;
+          // Randomizer "R"
+          if (e.key === 'r' || e.key === 'R') {
+            e.preventDefault();
+            triggerRandomTool();
+          }
         }
       });
 
-      // Gestion de la modale Suggérer
-      document.getElementById('open-suggest-modal')?.addEventListener('click', () => {
-        const m = document.getElementById('suggest-modal');
-        m?.classList.remove('hidden');
-        setTimeout(() => m?.classList.remove('opacity-0'), 10);
-      });
-      document.getElementById('close-modal')?.addEventListener('click', () => {
-        const m = document.getElementById('suggest-modal');
-        m?.classList.add('opacity-0');
-        setTimeout(() => m?.classList.add('hidden'), 200);
+      function closeAllModals() {
+        [detailsModal, commandPalette, document.getElementById('suggest-modal')].forEach(m => {
+          m?.classList.add('opacity-0');
+          setTimeout(() => m?.classList.add('hidden'), 150);
+        });
+      }
+
+      function toggleCommandPalette() {
+        if (commandPalette?.classList.contains('hidden')) {
+          commandPalette.classList.remove('hidden');
+          setTimeout(() => {
+            commandPalette.classList.remove('opacity-0');
+            paletteInput?.focus();
+          }, 10);
+        } else {
+          commandPalette?.classList.add('opacity-0');
+          setTimeout(() => commandPalette?.classList.add('hidden'), 150);
+        }
+      }
+
+      document.getElementById('trigger-palette')?.addEventListener('click', toggleCommandPalette);
+
+      // Fiche Détaillée
+      function openToolDetails(index) {
+        const tool = toolsData[index];
+        if (!tool) return;
+
+        activeDetailToolId = index.toString();
+
+        if (modalTitle) modalTitle.textContent = tool.title;
+        if (modalDesc) modalDesc.textContent = tool.desc;
+        if (modalCatBadge) modalCatBadge.textContent = tool.cat;
+        
+        const isFreeDev = tool.source === 'free_for_dev';
+        if (modalSourceBadge) {
+          modalSourceBadge.textContent = isFreeDev ? 'Free-Dev' : 'OSINT';
+          modalSourceBadge.className = `text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded ${
+            isFreeDev ? 'bg-emerald-950 text-emerald-400 border border-emerald-800/50' : 'bg-purple-950 text-purple-400 border border-purple-800/50'
+          }`;
+        }
+
+        if (modalPricingBadge) modalPricingBadge.textContent = tool.pricing;
+        if (modalApiBadge) {
+          if (tool.requiresApi) modalApiBadge.classList.remove('hidden');
+          else modalApiBadge.classList.add('hidden');
+        }
+
+        if (modalVisitBtn) modalVisitBtn.href = tool.url;
+
+        if (modalCommand) {
+          const cleanTitle = tool.title.toLowerCase().replace(/[^a-z0-9]/g, '');
+          modalCommand.textContent = isFreeDev ? `npm install ${cleanTitle}   # ou pip install ${cleanTitle}` : `docker run --rm -it osint/${cleanTitle}:latest`;
+        }
+
+        if (modalCheatsheet) modalCheatsheet.textContent = tool.cheatSheet;
+
+        // Alternatives
+        if (modalAlternatives) {
+          modalAlternatives.innerHTML = '';
+          const alts = toolsData.filter(t => t.cat === tool.cat && t.index !== tool.index).slice(0, 4);
+          if (alts.length > 0) {
+            alts.forEach(alt => {
+              const btn = document.createElement('button');
+              btn.className = 'px-3 py-1.5 rounded-xl bg-slate-950 border border-slate-800 hover:border-blue-500 text-xs text-slate-300 hover:text-white transition font-medium';
+              btn.textContent = `🔗 ${alt.title}`;
+              btn.onclick = () => openToolDetails(alt.index);
+              modalAlternatives.appendChild(btn);
+            });
+          } else {
+            modalAlternatives.innerHTML = '<span class="text-xs text-slate-500 italic">Aucune autre alternative.</span>';
+          }
+        }
+
+        updateModalFavButton();
+        detailsModal?.classList.remove('hidden');
+        setTimeout(() => detailsModal?.classList.remove('opacity-0'), 10);
+      }
+
+      function updateModalFavButton() {
+        if (!modalFavBtn || activeDetailToolId === null) return;
+        const isFav = favorites.includes(activeDetailToolId);
+        modalFavBtn.innerHTML = isFav ? '<span class="text-yellow-400">★</span> En favori' : '<span>★</span> Favori';
+        modalFavBtn.className = `flex items-center gap-2 px-4 py-2.5 rounded-xl font-semibold text-xs sm:text-sm transition border ${
+          isFav ? 'bg-yellow-500/10 border-yellow-500/30 text-yellow-300' : 'bg-slate-800 border-slate-700 text-slate-200 hover:bg-slate-700'
+        }`;
+      }
+
+      modalFavBtn?.addEventListener('click', () => {
+        if (activeDetailToolId === null) return;
+        if (favorites.includes(activeDetailToolId)) favorites = favorites.filter(f => f !== activeDetailToolId);
+        else favorites.push(activeDetailToolId);
+        localStorage.setItem('vault_favs', JSON.stringify(favorites));
+        updateFavIcons();
+        updateModalFavButton();
       });
 
-      // Data Prep pour Fuse
-      const toolsData = cards.map((card, index) => ({
-        index,
-        title: card.getAttribute('data-title') || '',
-        desc: card.getAttribute('data-desc') || '',
-        cat: card.getAttribute('data-cat') || '',
-        source: card.getAttribute('data-source') || '',
-        url: card.getAttribute('data-url') || ''
-      }));
+      document.getElementById('btn-copy-command')?.addEventListener('click', () => {
+        if (modalCommand?.textContent) {
+          navigator.clipboard.writeText(modalCommand.textContent).then(() => showToast("Commande copiée !"));
+        }
+      });
 
+      document.getElementById('close-details-modal')?.addEventListener('click', closeAllModals);
+
+      cards.forEach((card, index) => {
+        card.addEventListener('click', (e) => {
+          const target = e.target as HTMLElement;
+          if (target.closest('.copy-btn') || target.closest('.fav-btn') || target.closest('.visit-btn')) return;
+          openToolDetails(index);
+        });
+      });
+
+      // Random Tool
+      function triggerRandomTool() {
+        const visibleCards = cards.filter(c => !c.classList.contains('hidden'));
+        const pool = visibleCards.length > 0 ? visibleCards : cards;
+        const randomCard = pool[Math.floor(Math.random() * pool.length)];
+        if (randomCard) {
+          const id = randomCard.getAttribute('data-id');
+          if (id) openToolDetails(parseInt(id, 10));
+        }
+      }
+      document.getElementById('btn-random-trigger')?.addEventListener('click', triggerRandomTool);
+
+      // EXPORT & PARTAGE FAVORIS (STACK EXPORTER)
+      function exportFavoritesMarkdown() {
+        if (favorites.length === 0) {
+          showToast("Aucun favori à exporter !", true);
+          return;
+        }
+        const favTools = toolsData.filter(t => favorites.includes(t.id));
+        let mdContent = `# ⚡ Mon OSINT & Dev Stack (${favTools.length} outils)\n\nGénéré depuis Vault.dev\n\n`;
+        favTools.forEach(t => {
+          mdContent += `- [**${t.title}**](${t.url}) - *${t.cat}*: ${t.desc}\n`;
+        });
+
+        const blob = new Blob([mdContent], { type: 'text/markdown' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'my-vault-favorites.md';
+        a.click();
+        URL.revokeObjectURL(url);
+        showToast("Exportation Markdown téléchargée !");
+      }
+
+      function shareFavoritesLink() {
+        if (favorites.length === 0) {
+          showToast("Ajoutez des favoris avant de partager !", true);
+          return;
+        }
+        const shareUrl = `${window.location.origin}${window.location.pathname}?favs=${favorites.join(',')}`;
+        navigator.clipboard.writeText(shareUrl).then(() => {
+          showToast("Lien de votre sélection copié !");
+        });
+      }
+
+      document.getElementById('btn-export-md')?.addEventListener('click', exportFavoritesMarkdown);
+      document.getElementById('btn-share-stack')?.addEventListener('click', shareFavoritesLink);
+
+      // Action depuis palette
+      document.querySelectorAll('.palette-item').forEach(item => {
+        item.addEventListener('click', () => {
+          const action = item.getAttribute('data-action');
+          toggleCommandPalette();
+          if (action === 'random') triggerRandomTool();
+          if (action === 'favs') { favOnly = true; filterTools(); }
+          if (action === 'export-md') exportFavoritesMarkdown();
+          if (action === 'share-stack') shareFavoritesLink();
+        });
+      });
+
+      // Lecture des favoris partagés dans l'URL (?favs=1,4,12)
+      const urlParams = new URLSearchParams(window.location.search);
+      const sharedFavs = urlParams.get('favs');
+      if (sharedFavs) {
+        const parsedIds = sharedFavs.split(',').filter(Boolean);
+        if (parsedIds.length > 0) {
+          favorites = [...new Set([...favorites, ...parsedIds])];
+          localStorage.setItem('vault_favs', JSON.stringify(favorites));
+          favOnly = true;
+          showToast(`Chargement de ${parsedIds.length} favoris partagés !`);
+        }
+      }
+
+      // Engine de Recherche (Fuse.js)
       const fuse = new Fuse(toolsData, {
         keys: ['title', 'desc', 'cat'],
         threshold: 0.3,
         ignoreLocation: true
       });
 
-      // Filter, Sort & Highlight Logic
       function filterTools() {
         const query = input.value.trim();
-        const queryWords = query.length > 2 ? query.split(' ').filter(w => w.length > 1) : [];
         let validIndices = toolsData.map(t => t.index);
 
         if (query) validIndices = fuse.search(query).map(r => r.item.index);
@@ -487,51 +863,31 @@ const allCategoriesCount = [...new Set(toolsData.map(i => cleanText(i.category))
         if (selectedCategory !== 'ALL') validIndices = validIndices.filter(idx => toolsData[idx].cat === selectedCategory);
         if (favOnly) validIndices = validIndices.filter(idx => favorites.includes(idx.toString()));
 
-        // Tri (Sorting) via Flex/Grid Order CSS
         let sortedIndices = [...validIndices];
-        if (currentSort === 'az') {
-          sortedIndices.sort((a, b) => toolsData[a].title.localeCompare(toolsData[b].title));
-        } else if (currentSort === 'za') {
-          sortedIndices.sort((a, b) => toolsData[b].title.localeCompare(toolsData[a].title));
-        }
+        if (currentSort === 'az') sortedIndices.sort((a, b) => toolsData[a].title.localeCompare(toolsData[b].title));
+        else if (currentSort === 'za') sortedIndices.sort((a, b) => toolsData[b].title.localeCompare(toolsData[a].title));
 
         const totalMatching = sortedIndices.length;
         let displayedCount = 0;
 
-        // Mise à jour visuelle des cartes
         cards.forEach((card, idx) => {
           if (sortedIndices.includes(idx)) {
             displayedCount++;
-            
-            // On gère l'ordre CSS selon le tri
             card.style.order = sortedIndices.indexOf(idx).toString();
-
-            if (displayedCount <= visibleLimit) {
-              card.classList.remove('hidden');
-              
-              // Highlighting sur le titre et la desc
-              const titleEl = card.querySelector('.card-title');
-              const descEl = card.querySelector('.card-desc');
-              if (titleEl) highlightText(titleEl, card.getAttribute('data-title'), queryWords);
-              if (descEl) highlightText(descEl, card.getAttribute('data-desc'), queryWords);
-
-            } else {
-              card.classList.add('hidden');
-            }
+            if (displayedCount <= visibleLimit) card.classList.remove('hidden');
+            else card.classList.add('hidden');
           } else {
             card.classList.add('hidden');
           }
         });
 
-        // Toggle "Charger plus"
         if (loadMoreBtn) {
           if (totalMatching > visibleLimit) loadMoreBtn.classList.remove('hidden');
           else loadMoreBtn.classList.add('hidden');
         }
 
-        if (counter) counter.innerHTML = i18n[currentLang].counterText(Math.min(displayedCount, visibleLimit), totalMatching);
+        if (counter) counter.innerHTML = `Affichage de <strong class="text-white">${Math.min(displayedCount, visibleLimit)}</strong> sur <strong class="text-white">${totalMatching}</strong> ressources`;
 
-        // Update Indicateur Filtre
         if (selectedCategory !== 'ALL' || selectedSource !== 'ALL' || favOnly) {
           activeFilterIndicator?.classList.remove('hidden');
           let label = favOnly ? "Favoris" : `${selectedSource !== 'ALL' ? (selectedSource === 'free_for_dev' ? 'Free-Dev' : 'OSINT') : ''} ${selectedCategory !== 'ALL' ? '> ' + selectedCategory : ''}`;
@@ -541,12 +897,11 @@ const allCategoriesCount = [...new Set(toolsData.map(i => cleanText(i.category))
         }
       }
 
-      // Listeners
       input?.addEventListener('input', () => { visibleLimit = pageSize; filterTools(); });
       sortSelect?.addEventListener('change', (e) => { currentSort = (e.target as HTMLSelectElement).value; filterTools(); });
       loadMoreBtn?.addEventListener('click', () => { visibleLimit += pageSize; filterTools(); });
 
-      document.querySelectorAll('.nav-filter-btn').forEach(btn => {
+      document.querySelectorAll('.nav-filter-btn, .quick-chip').forEach(btn => {
         btn.addEventListener('click', () => {
           favOnly = false;
           visibleLimit = pageSize;
@@ -568,11 +923,10 @@ const allCategoriesCount = [...new Set(toolsData.map(i => cleanText(i.category))
         filterTools();
       });
 
-      // Actions Cartes (Copier & Favoris)
       document.querySelectorAll('.copy-btn').forEach(btn => {
         btn.addEventListener('click', (e) => {
           e.stopPropagation();
-          navigator.clipboard.writeText(btn.getAttribute('data-url') || '').then(() => showToast("Lien copié dans le presse-papier !"));
+          navigator.clipboard.writeText(btn.getAttribute('data-url') || '').then(() => showToast("Lien copié !"));
         });
       });
 
@@ -610,7 +964,20 @@ const allCategoriesCount = [...new Set(toolsData.map(i => cleanText(i.category))
         filterTools();
       });
 
-      // Init
+      window.addEventListener('scroll', () => {
+        if (window.scrollY > 400) backToTopBtn?.classList.remove('opacity-0', 'pointer-events-none');
+        else backToTopBtn?.classList.add('opacity-0', 'pointer-events-none');
+      });
+      backToTopBtn?.addEventListener('click', () => window.scrollTo({ top: 0, behavior: 'smooth' }));
+
+      // Formspree Suggestion
+      document.getElementById('open-suggest-modal')?.addEventListener('click', () => {
+        const m = document.getElementById('suggest-modal');
+        m?.classList.remove('hidden');
+        setTimeout(() => m?.classList.remove('opacity-0'), 10);
+      });
+      document.getElementById('close-modal')?.addEventListener('click', closeAllModals);
+
       updateFavIcons();
       filterTools();
     </script>
