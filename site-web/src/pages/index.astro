@@ -678,35 +678,39 @@ const osintCategories = [...new Set(osintTools.map((t: any) => t.cleanCategory))
 
       document.getElementById('close-modal')?.addEventListener('click', closeAllModals);
 
-      suggestForm?.addEventListener('submit', async (e) => {
-        e.preventDefault();
+suggestForm?.addEventListener('submit', async (e) => {
+  e.preventDefault();
 
-        const payload = {
-          name: (document.getElementById('suggest-name') as HTMLInputElement)?.value || '',
-          url: (document.getElementById('suggest-url') as HTMLInputElement)?.value || '',
-          source: (document.getElementById('suggest-source') as HTMLSelectElement)?.value || 'free_for_dev',
-          category: (document.getElementById('suggest-cat') as HTMLInputElement)?.value || '',
-          description: (document.getElementById('suggest-desc') as HTMLTextAreaElement)?.value || '',
-        };
+  const payload = {
+    name: (document.getElementById('suggest-name') as HTMLInputElement)?.value || '',
+    url: (document.getElementById('suggest-url') as HTMLInputElement)?.value || '',
+    source: (document.getElementById('suggest-source') as HTMLSelectElement)?.value || 'free_for_dev',
+    category: (document.getElementById('suggest-cat') as HTMLInputElement)?.value || '',
+    description: (document.getElementById('suggest-desc') as HTMLTextAreaElement)?.value || '',
+  };
 
-        try {
-          const response = await fetch('/api/suggest', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload),
-          });
+  try {
+    // Envoi direct vers votre endpoint Formspree
+    const response = await fetch('https://formspree.io/f/xojgnlky', {
+      method: 'POST',
+      headers: { 
+        'Content-Type': 'application/json',
+        'Accept': 'application/json'
+      },
+      body: JSON.stringify(payload),
+    });
 
-          if (response.ok) {
-            closeAllModals();
-            showToast("Suggestion envoyée avec succès !", "🎉");
-            suggestForm.reset();
-          } else {
-            showToast("Erreur lors de l'envoi", "⚠️");
-          }
-        } catch {
-          showToast("Erreur réseau", "❌");
-        }
-      });
+    if (response.ok) {
+      closeAllModals();
+      showToast("Suggestion envoyée avec succès !", "🎉");
+      suggestForm.reset();
+    } else {
+      showToast("Erreur lors de l'envoi", "⚠️");
+    }
+  } catch {
+    showToast("Erreur réseau", "❌");
+  }
+});
 
       updateFavoritesUI();
       filterAndDisplay();
