@@ -1,0 +1,30 @@
+name: 🧪 Vérification du Build Astro
+
+on:
+  push:
+    branches:
+      - develop
+  pull_request:
+    branches:
+      - develop
+
+jobs:
+  test-build:
+    name: Tester la compilation
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: 📥 Récupérer le code
+        uses: actions/checkout@v4
+
+      - name: ⚙️ Configurer Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22' # Tu peux ajuster selon ta version de Node
+          cache: 'npm'
+
+      - name: 📦 Installer les dépendances
+        run: npm ci # 'npm ci' est plus strict et propre que 'npm install' pour les serveurs
+
+      - name: 🏗️ Tester le build
+        run: npm run build
