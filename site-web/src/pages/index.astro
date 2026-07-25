@@ -117,10 +117,17 @@ const osintCategories = [...new Set(osintTools.map((t: any) => t.cleanCategory))
           <button id="btn-fav-toggle" class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-900 border border-slate-800 text-amber-400 hover:bg-slate-800 transition text-xs font-semibold">
             ⭐ Favoris <span id="fav-badge" class="px-1.5 py-0.5 rounded-full bg-amber-500/20 text-amber-300">0</span>
           </button>
+
+          <button id="btn-stack-toggle" class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-900 border border-slate-800 text-cyan-400 hover:bg-slate-800 transition text-xs font-semibold">
+            🧰 Ma Stack <span id="stack-badge" class="px-1.5 py-0.5 rounded-full bg-cyan-500/20 text-cyan-300">0</span>
+          </button>
         </nav>
 
         <!-- BOUTONS DROITE -->
         <div class="flex items-center gap-3">
+          <button id="btn-stack-toggle-mobile" class="md:hidden flex items-center gap-1 px-2.5 py-2 text-xs font-semibold text-cyan-400 bg-slate-900 border border-slate-800 rounded-xl transition">
+            🧰 <span id="stack-badge-mobile" class="px-1.5 py-0.5 rounded-full bg-cyan-500/20 text-cyan-300">0</span>
+          </button>
           <button id="btn-surprise-nav" class="px-3 py-2 text-xs font-semibold text-slate-200 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-xl transition flex items-center gap-1.5" title="Découvrir un outil au hasard">
             <span>🎲</span> <span class="hidden sm:inline">Surprenez-moi !</span>
           </button>
@@ -191,6 +198,21 @@ const osintCategories = [...new Set(osintTools.map((t: any) => t.cleanCategory))
         </div>
       </section>
 
+      <!-- SÉLECTEUR D'ONGLETS PRINCIPAUX -->
+      <div class="flex items-center justify-center mb-10">
+        <div class="inline-flex p-1 bg-slate-900/80 border border-slate-800 rounded-2xl gap-1 shadow-xl">
+          <button id="tab-btn-catalog" data-tab="catalog" class="main-tab-btn px-5 py-2.5 rounded-xl text-sm font-semibold transition flex items-center gap-2 bg-blue-600 text-white shadow-lg shadow-blue-600/30">
+            🛠️ Catalogue d'Outils
+          </button>
+          <button id="tab-btn-playbooks" data-tab="playbooks" class="main-tab-btn px-5 py-2.5 rounded-xl text-sm font-semibold transition flex items-center gap-2 text-slate-400 hover:text-white">
+            📜 Playbooks & Workflows
+          </button>
+        </div>
+      </div>
+
+      <!-- ============ ONGLET CATALOGUE ============ -->
+      <div id="tab-panel-catalog">
+
       <!-- FILTRES RAPIDES ET TRI -->
       <div class="flex flex-col md:flex-row gap-4 items-start md:items-center justify-between mb-8">
         <div class="flex items-center gap-2 flex-wrap">
@@ -217,6 +239,26 @@ const osintCategories = [...new Set(osintTools.map((t: any) => t.cleanCategory))
         </div>
       </div>
 
+      <!-- FILTRES PAR TYPE D'ENVIRONNEMENT -->
+      <div class="flex items-center gap-2 flex-wrap mb-8 -mt-2">
+        <span class="text-[11px] font-semibold uppercase tracking-wider text-slate-500 mr-1">Environnement :</span>
+        <button data-envtype="ALL" class="env-chip active px-3 py-1 rounded-full text-xs font-medium bg-slate-800 border border-slate-700 text-slate-200 transition">
+          Tous
+        </button>
+        <button data-envtype="Web" class="env-chip px-3 py-1 rounded-full text-xs font-medium bg-slate-900 border border-slate-800 text-slate-400 hover:text-white hover:border-blue-500/50 transition">
+          🌐 Web
+        </button>
+        <button data-envtype="CLI" class="env-chip px-3 py-1 rounded-full text-xs font-medium bg-slate-900 border border-slate-800 text-slate-400 hover:text-white hover:border-blue-500/50 transition">
+          ⌨️ CLI
+        </button>
+        <button data-envtype="Self-Hosted" class="env-chip px-3 py-1 rounded-full text-xs font-medium bg-slate-900 border border-slate-800 text-slate-400 hover:text-white hover:border-blue-500/50 transition">
+          🏠 Self-Hosted
+        </button>
+        <button data-envtype="API" class="env-chip px-3 py-1 rounded-full text-xs font-medium bg-slate-900 border border-slate-800 text-slate-400 hover:text-white hover:border-blue-500/50 transition">
+          🔑 API Requise
+        </button>
+      </div>
+
       <!-- BANDEAU FILTRE ACTIF -->
       <div id="active-filter-indicator" class="hidden mb-6 flex items-center justify-between p-3 bg-blue-950/40 border border-blue-800/40 rounded-xl text-xs text-blue-300">
         <span>Filtre actif : <strong id="filter-name-text"></strong></span>
@@ -241,6 +283,9 @@ const osintCategories = [...new Set(osintTools.map((t: any) => t.cleanCategory))
                 <div class="flex items-center gap-1">
                   <button class="fav-btn p-1 hover:text-yellow-400 text-slate-600 transition" data-id={tool.id} title="Ajouter aux favoris">
                     ⭐
+                  </button>
+                  <button class="stack-btn p-1 hover:text-cyan-400 text-slate-600 transition" data-id={tool.id} title="Ajouter à ma Stack">
+                    🧰
                   </button>
                   <button class="copy-btn p-1 hover:text-blue-400 text-slate-600 transition" data-url={tool.url} title="Copier le lien">
                     🔗
@@ -285,6 +330,26 @@ const osintCategories = [...new Set(osintTools.map((t: any) => t.cleanCategory))
         </span>
       </div>
 
+      </div>
+      <!-- ============ FIN ONGLET CATALOGUE ============ -->
+
+      <!-- ============ ONGLET PLAYBOOKS & WORKFLOWS ============ -->
+      <div id="tab-panel-playbooks" class="hidden">
+        <div class="text-center max-w-2xl mx-auto mb-10">
+          <h2 class="text-2xl sm:text-3xl font-bold text-white mb-3">📜 Playbooks & Workflows</h2>
+          <p class="text-slate-400 text-sm">
+            Des parcours guidés étape par étape. Chaque étape recommande les outils du catalogue les mieux adaptés.
+          </p>
+        </div>
+
+        <!-- SÉLECTEUR DE PLAYBOOK -->
+        <div id="playbook-selector" class="flex flex-col sm:flex-row gap-4 max-w-4xl mx-auto mb-10"></div>
+
+        <!-- DÉTAIL DU PLAYBOOK ACTIF -->
+        <div id="playbook-detail" class="max-w-4xl mx-auto space-y-5"></div>
+      </div>
+      <!-- ============ FIN ONGLET PLAYBOOKS & WORKFLOWS ============ -->
+
     </main>
 
     <!-- MODALE DETAILS OUTIL COMPLET -->
@@ -317,9 +382,14 @@ const osintCategories = [...new Set(osintTools.map((t: any) => t.cleanCategory))
 
         <!-- ACTIONS BAS DE MODALE -->
         <div class="flex items-center justify-between pt-4 border-t border-slate-800">
-          <button id="modal-fav-toggle" class="text-xs font-semibold px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 transition flex items-center gap-1.5">
-            ⭐ <span>Favori</span>
-          </button>
+          <div class="flex items-center gap-2">
+            <button id="modal-fav-toggle" class="text-xs font-semibold px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 transition flex items-center gap-1.5">
+              ⭐ <span>Favori</span>
+            </button>
+            <button id="modal-stack-toggle" class="text-xs font-semibold px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-cyan-300 transition flex items-center gap-1.5">
+              🧰 <span>Ma Stack</span>
+            </button>
+          </div>
           <div class="flex items-center gap-3">
             <button id="modal-copy-link" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl text-xs font-semibold transition flex items-center gap-1.5">
               🔗 Copier lien
@@ -328,6 +398,38 @@ const osintCategories = [...new Set(osintTools.map((t: any) => t.cleanCategory))
               Visiter ↗
             </a>
           </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- MODALE MA STACK / STACK BUILDER -->
+    <div id="stack-modal" class="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-md hidden opacity-0 transition-opacity duration-200 flex items-center justify-center p-4">
+      <div class="bg-slate-900 border border-slate-800 rounded-2xl max-w-xl w-full p-6 shadow-2xl relative max-h-[85vh] flex flex-col">
+        <button id="close-stack-modal" class="absolute top-4 right-4 text-slate-400 hover:text-white p-2 text-lg">✕</button>
+
+        <h3 class="text-xl font-bold text-white mb-1 flex items-center gap-2">🧰 Ma Stack / Mon Kit</h3>
+        <p class="text-xs text-slate-400 mb-5">
+          Composez votre sélection d'outils, puis exportez-la en note Markdown ou partagez-la via un lien.
+        </p>
+
+        <div id="stack-list" class="flex-1 overflow-y-auto space-y-2 mb-5 pr-1">
+          <!-- Rempli dynamiquement par JS -->
+        </div>
+
+        <div id="stack-empty-state" class="hidden text-center py-8 text-slate-500 text-sm">
+          Votre stack est vide. Cliquez sur 🧰 sur une carte d'outil pour l'ajouter ici.
+        </div>
+
+        <div class="flex flex-col sm:flex-row gap-2.5 pt-4 border-t border-slate-800">
+          <button id="btn-export-md" class="flex-1 px-4 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-100 rounded-xl text-xs font-semibold transition flex items-center justify-center gap-1.5">
+            📝 Exporter en Markdown
+          </button>
+          <button id="btn-export-link" class="flex-1 px-4 py-2.5 bg-cyan-600 hover:bg-cyan-500 text-white rounded-xl text-xs font-semibold transition flex items-center justify-center gap-1.5 shadow-lg shadow-cyan-600/20">
+            🔗 Générer un lien de partage
+          </button>
+          <button id="btn-clear-stack" class="px-4 py-2.5 bg-red-950/40 hover:bg-red-900/50 border border-red-900/50 text-red-300 rounded-xl text-xs font-semibold transition">
+            🗑️ Vider
+          </button>
         </div>
       </div>
     </div>
@@ -391,8 +493,12 @@ const osintCategories = [...new Set(osintTools.map((t: any) => t.cleanCategory))
       let tools = enrichedTools;
       let selectedSource = 'ALL';
       let selectedCat = 'ALL';
+      let selectedEnvType = 'ALL';
       let showOnlyFavs = false;
       let favorites = JSON.parse(localStorage.getItem('vault_favs') || '[]');
+      let stack: number[] = JSON.parse(localStorage.getItem('vault_stack') || '[]');
+      let activeTab = 'catalog';
+      let activePlaybookId: string | null = null;
       let displayLimit = 60;
       let filteredToolsCache = [...tools];
       let activeToolForModal = null;
@@ -401,6 +507,93 @@ const osintCategories = [...new Set(osintTools.map((t: any) => t.cleanCategory))
         keys: ['title', 'cleanCategory', 'safeDesc', 'pricing', 'appType'],
         threshold: 0.35,
       });
+
+      // ============ DONNÉES DES PLAYBOOKS & WORKFLOWS ============
+      const PLAYBOOKS = [
+        {
+          id: 'osint-pseudo',
+          icon: '🕵️',
+          title: 'Enquête OSINT sur un pseudo',
+          accent: 'purple',
+          description: "Retracez la présence en ligne d'un pseudonyme, du recoupement de comptes jusqu'à la vérification des fuites de données.",
+          steps: [
+            {
+              title: '1. Vérifier la disponibilité du pseudo multi-plateformes',
+              desc: "Recherchez le pseudo sur un maximum de réseaux et plateformes pour identifier tous les comptes liés.",
+              keywords: ['username', 'pseudo', 'social media', 'sherlock', 'namechk'],
+            },
+            {
+              title: '2. Explorer les réseaux sociaux',
+              desc: "Analysez les profils publics trouvés : publications, contacts, métadonnées visibles.",
+              keywords: ['social network', 'twitter', 'instagram', 'facebook', 'linkedin'],
+            },
+            {
+              title: '3. Recherche d\'images inversée',
+              desc: "Vérifiez si l'avatar ou des photos associées apparaissent ailleurs sur le web.",
+              keywords: ['reverse image', 'image search', 'photo', 'facial'],
+            },
+            {
+              title: '4. Vérifier les fuites de données / email',
+              desc: "Croisez l'email ou le pseudo avec des bases de fuites connues pour évaluer l'exposition.",
+              keywords: ['breach', 'leak', 'email verification', 'data breach'],
+            },
+            {
+              title: '5. Documenter et archiver les preuves',
+              desc: "Archivez les pages trouvées et structurez vos notes d'enquête.",
+              keywords: ['archive', 'wayback', 'notes', 'documentation'],
+            },
+          ],
+        },
+        {
+          id: 'deploy-fullstack-free',
+          icon: '🚀',
+          title: 'Déployer un projet fullstack 100% gratuit',
+          accent: 'emerald',
+          description: "De l'hébergement du frontend au monitoring, un parcours pour mettre en ligne un projet complet sans budget.",
+          steps: [
+            {
+              title: '1. Héberger le frontend',
+              desc: "Déployez votre interface statique ou SSR gratuitement avec CI/CD intégré.",
+              keywords: ['hosting', 'static site', 'frontend', 'vercel', 'netlify'],
+            },
+            {
+              title: '2. Déployer le backend / API',
+              desc: "Choisissez une plateforme serverless ou un free tier pour exposer votre API.",
+              keywords: ['backend', 'serverless', 'api hosting', 'functions'],
+            },
+            {
+              title: '3. Provisionner une base de données gratuite',
+              desc: "Mettez en place une base de données managée sur un plan gratuit.",
+              keywords: ['database', 'postgres', 'mongodb', 'sql'],
+            },
+            {
+              title: '4. Configurer domaine & DNS',
+              desc: "Reliez un nom de domaine (gratuit ou existant) et configurez le DNS.",
+              keywords: ['domain', 'dns', 'ssl', 'certificate'],
+            },
+            {
+              title: '5. Suivre le monitoring & les analytics',
+              desc: "Ajoutez un suivi des erreurs et des statistiques de trafic gratuits.",
+              keywords: ['monitoring', 'analytics', 'logs', 'uptime'],
+            },
+          ],
+        },
+      ];
+
+      function findToolsByKeywords(keywords: string[], limit = 3) {
+        const lowerKeywords = keywords.map(k => k.toLowerCase());
+        const scored = tools.map((t: any) => {
+          const haystack = `${t.title} ${t.cleanCategory} ${t.safeDesc}`.toLowerCase();
+          let score = 0;
+          lowerKeywords.forEach(k => {
+            if (haystack.includes(k)) score += 1;
+          });
+          return { tool: t, score };
+        }).filter(s => s.score > 0);
+
+        scored.sort((a, b) => b.score - a.score);
+        return scored.slice(0, limit).map(s => s.tool);
+      }
 
       const searchInput = document.getElementById('search-input') as HTMLInputElement;
       const sortSelect = document.getElementById('sort-select') as HTMLSelectElement;
@@ -463,6 +656,11 @@ const osintCategories = [...new Set(osintTools.map((t: any) => t.cleanCategory))
           if (selectedSource !== 'ALL' && t.source !== selectedSource) return false;
           if (selectedCat !== 'ALL' && t.cleanCategory !== selectedCat) return false;
           if (showOnlyFavs && !favorites.includes(t.id)) return false;
+          if (selectedEnvType === 'API') {
+            if (!t.requiresApi) return false;
+          } else if (selectedEnvType !== 'ALL') {
+            if ((t.appType || 'Web') !== selectedEnvType) return false;
+          }
           return true;
         });
 
@@ -501,15 +699,19 @@ const osintCategories = [...new Set(osintTools.map((t: any) => t.cleanCategory))
         }
 
         if (activeFilterInd && filterNameText) {
+          const envLabel = selectedEnvType !== 'ALL' ? ` · Env: ${selectedEnvType === 'API' ? 'API Requise' : selectedEnvType}` : '';
           if (showOnlyFavs) {
             activeFilterInd.classList.remove('hidden');
-            filterNameText.textContent = '⭐ Mes Favoris';
+            filterNameText.textContent = `⭐ Mes Favoris${envLabel}`;
           } else if (selectedCat !== 'ALL') {
             activeFilterInd.classList.remove('hidden');
-            filterNameText.textContent = `${selectedSource === 'free_for_dev' ? 'Free Dev' : 'OSINT'} > ${selectedCat}`;
+            filterNameText.textContent = `${selectedSource === 'free_for_dev' ? 'Free Dev' : 'OSINT'} > ${selectedCat}${envLabel}`;
           } else if (selectedSource !== 'ALL') {
             activeFilterInd.classList.remove('hidden');
-            filterNameText.textContent = selectedSource === 'free_for_dev' ? 'Free Dev' : 'OSINT';
+            filterNameText.textContent = `${selectedSource === 'free_for_dev' ? 'Free Dev' : 'OSINT'}${envLabel}`;
+          } else if (selectedEnvType !== 'ALL') {
+            activeFilterInd.classList.remove('hidden');
+            filterNameText.textContent = `Tous les outils${envLabel}`;
           } else {
             activeFilterInd.classList.add('hidden');
           }
@@ -584,11 +786,67 @@ const osintCategories = [...new Set(osintTools.map((t: any) => t.cleanCategory))
       document.getElementById('reset-filter-btn')?.addEventListener('click', () => {
         selectedSource = 'ALL';
         selectedCat = 'ALL';
+        selectedEnvType = 'ALL';
         showOnlyFavs = false;
         if (searchInput) searchInput.value = '';
         displayLimit = 60;
+        setEnvChipActive('ALL');
         filterAndDisplay();
       });
+
+      // FILTRES PAR TYPE D'ENVIRONNEMENT
+      const envChipActiveClasses = ['bg-slate-800', 'border-slate-700', 'text-slate-200'];
+      const envChipInactiveClasses = ['bg-slate-900', 'border-slate-800', 'text-slate-400'];
+
+      function setEnvChipActive(envType: string) {
+        document.querySelectorAll('.env-chip').forEach((chip: any) => {
+          const isActive = chip.getAttribute('data-envtype') === envType;
+          chip.classList.remove(...envChipActiveClasses, ...envChipInactiveClasses);
+          chip.classList.add(...(isActive ? envChipActiveClasses : envChipInactiveClasses));
+        });
+      }
+
+      document.querySelectorAll('.env-chip').forEach(chip => {
+        chip.addEventListener('click', () => {
+          selectedEnvType = chip.getAttribute('data-envtype') || 'ALL';
+          displayLimit = 60;
+          setEnvChipActive(selectedEnvType);
+          filterAndDisplay();
+        });
+      });
+
+      // ============ ONGLETS PRINCIPAUX (CATALOGUE / PLAYBOOKS) ============
+      const tabPanelCatalog = document.getElementById('tab-panel-catalog');
+      const tabPanelPlaybooks = document.getElementById('tab-panel-playbooks');
+      const tabBtnCatalog = document.getElementById('tab-btn-catalog');
+      const tabBtnPlaybooks = document.getElementById('tab-btn-playbooks');
+
+      const tabActiveClasses = ['bg-blue-600', 'text-white', 'shadow-lg', 'shadow-blue-600/30'];
+      const tabInactiveClasses = ['text-slate-400', 'hover:text-white'];
+
+      function switchTab(tab: string) {
+        activeTab = tab;
+        if (tab === 'playbooks') {
+          tabPanelCatalog?.classList.add('hidden');
+          tabPanelPlaybooks?.classList.remove('hidden');
+          tabBtnPlaybooks?.classList.remove(...tabInactiveClasses);
+          tabBtnPlaybooks?.classList.add(...tabActiveClasses);
+          tabBtnCatalog?.classList.remove(...tabActiveClasses);
+          tabBtnCatalog?.classList.add(...tabInactiveClasses);
+          renderPlaybookSelector();
+          if (!activePlaybookId && PLAYBOOKS.length > 0) openPlaybook(PLAYBOOKS[0].id);
+        } else {
+          tabPanelPlaybooks?.classList.add('hidden');
+          tabPanelCatalog?.classList.remove('hidden');
+          tabBtnCatalog?.classList.remove(...tabInactiveClasses);
+          tabBtnCatalog?.classList.add(...tabActiveClasses);
+          tabBtnPlaybooks?.classList.remove(...tabActiveClasses);
+          tabBtnPlaybooks?.classList.add(...tabInactiveClasses);
+        }
+      }
+
+      tabBtnCatalog?.addEventListener('click', () => switchTab('catalog'));
+      tabBtnPlaybooks?.addEventListener('click', () => switchTab('playbooks'));
 
       document.getElementById('btn-fav-toggle')?.addEventListener('click', () => {
         showOnlyFavs = !showOnlyFavs;
@@ -604,6 +862,13 @@ const osintCategories = [...new Set(osintTools.map((t: any) => t.cleanCategory))
           e.stopPropagation();
           const id = Number(target.getAttribute('data-id'));
           toggleFavorite(id);
+          return;
+        }
+
+        if (target.classList.contains('stack-btn')) {
+          e.stopPropagation();
+          const id = Number(target.getAttribute('data-id'));
+          toggleStack(id);
           return;
         }
 
@@ -682,6 +947,11 @@ const osintCategories = [...new Set(osintTools.map((t: any) => t.cleanCategory))
           suggestModal.classList.add('opacity-0');
           setTimeout(() => suggestModal.classList.add('hidden'), 200);
         }
+        const stackModalEl = document.getElementById('stack-modal');
+        if (stackModalEl && !stackModalEl.classList.contains('hidden')) {
+          stackModalEl.classList.add('opacity-0');
+          setTimeout(() => stackModalEl.classList.add('hidden'), 200);
+        }
       }
 
       document.getElementById('close-details-modal')?.addEventListener('click', closeAllModals);
@@ -705,6 +975,260 @@ const osintCategories = [...new Set(osintTools.map((t: any) => t.cleanCategory))
           showToast("CheatSheet copié dans le presse-papier !", "📋");
         }
       });
+
+      document.getElementById('modal-stack-toggle')?.addEventListener('click', () => {
+        if (activeToolForModal) {
+          toggleStack(activeToolForModal.id);
+        }
+      });
+
+      // ============ MODULE "CUSTOM STACK BUILDER" ============
+      const stackModal = document.getElementById('stack-modal');
+      const stackList = document.getElementById('stack-list');
+      const stackEmptyState = document.getElementById('stack-empty-state');
+      const stackBadge = document.getElementById('stack-badge');
+      const stackBadgeMobile = document.getElementById('stack-badge-mobile');
+
+      function persistStack() {
+        localStorage.setItem('vault_stack', JSON.stringify(stack));
+      }
+
+      function toggleStack(id: number) {
+        if (stack.includes(id)) {
+          stack = stack.filter((s: number) => s !== id);
+          showToast("Retiré de la Stack", "🗑️");
+        } else {
+          stack.push(id);
+          showToast("Ajouté à votre Stack !", "🧰");
+        }
+        persistStack();
+        updateStackUI();
+      }
+
+      function updateStackUI() {
+        const count = stack.length.toString();
+        if (stackBadge) stackBadge.textContent = count;
+        if (stackBadgeMobile) stackBadgeMobile.textContent = count;
+
+        document.querySelectorAll('.stack-btn').forEach(btn => {
+          const id = Number(btn.getAttribute('data-id'));
+          if (stack.includes(id)) {
+            btn.classList.add('text-cyan-400');
+            btn.classList.remove('text-slate-600');
+          } else {
+            btn.classList.remove('text-cyan-400');
+            btn.classList.add('text-slate-600');
+          }
+        });
+
+        renderStackList();
+      }
+
+      function renderStackList() {
+        if (!stackList || !stackEmptyState) return;
+        const stackTools = stack
+          .map((id: number) => tools.find((t: any) => t.id === id))
+          .filter(Boolean);
+
+        if (stackTools.length === 0) {
+          stackList.innerHTML = '';
+          stackEmptyState.classList.remove('hidden');
+          return;
+        }
+        stackEmptyState.classList.add('hidden');
+
+        stackList.innerHTML = stackTools.map((t: any) => `
+          <div class="flex items-center justify-between gap-3 bg-slate-950/60 border border-slate-800 rounded-xl px-3.5 py-2.5">
+            <div class="min-w-0">
+              <p class="text-sm font-semibold text-slate-100 truncate">${t.title}</p>
+              <p class="text-[11px] text-slate-500 font-mono truncate">${t.cleanCategory} · ${t.appType || 'Web'}</p>
+            </div>
+            <button class="stack-remove-btn shrink-0 text-slate-500 hover:text-red-400 transition p-1" data-id="${t.id}" title="Retirer">✕</button>
+          </div>
+        `).join('');
+      }
+
+      stackList?.addEventListener('click', (e: any) => {
+        const btn = e.target?.closest('.stack-remove-btn');
+        if (!btn) return;
+        const id = Number(btn.getAttribute('data-id'));
+        toggleStack(id);
+      });
+
+      function openStackModal() {
+        stackModal?.classList.remove('hidden');
+        setTimeout(() => stackModal?.classList.remove('opacity-0'), 10);
+        renderStackList();
+      }
+
+      document.getElementById('btn-stack-toggle')?.addEventListener('click', openStackModal);
+      document.getElementById('btn-stack-toggle-mobile')?.addEventListener('click', openStackModal);
+      document.getElementById('close-stack-modal')?.addEventListener('click', closeAllModals);
+
+      document.getElementById('btn-clear-stack')?.addEventListener('click', () => {
+        stack = [];
+        persistStack();
+        updateStackUI();
+        showToast("Stack vidée", "🗑️");
+      });
+
+      // Export Markdown (compatible Obsidian)
+      document.getElementById('btn-export-md')?.addEventListener('click', () => {
+        const stackTools = stack
+          .map((id: number) => tools.find((t: any) => t.id === id))
+          .filter(Boolean);
+
+        if (stackTools.length === 0) {
+          showToast("Votre Stack est vide", "⚠️");
+          return;
+        }
+
+        const dateStr = new Date().toISOString().slice(0, 10);
+        let md = `# 🧰 Ma Stack — Vault.dev\n\n`;
+        md += `> Exporté le ${dateStr} · ${stackTools.length} outil(s)\n\n`;
+
+        const grouped: Record<string, any[]> = {};
+        stackTools.forEach((t: any) => {
+          const key = t.cleanCategory || 'Général';
+          if (!grouped[key]) grouped[key] = [];
+          grouped[key].push(t);
+        });
+
+        Object.keys(grouped).sort().forEach(cat => {
+          md += `## ${cat}\n\n`;
+          grouped[cat].forEach((t: any) => {
+            md += `- **[${t.title}](${t.url})** — ${t.safeDesc}\n`;
+            md += `  - Tags: #${(t.source === 'free_for_dev' ? 'free-dev' : 'osint')} #${(t.appType || 'web').toLowerCase().replace(/\s+/g, '-')}${t.requiresApi ? ' #api-requise' : ''}\n`;
+            if (t.cheatSheet) {
+              md += `  - CheatSheet:\n    \`\`\`\n    ${t.cheatSheet.split('\n').join('\n    ')}\n    \`\`\`\n`;
+            }
+          });
+          md += `\n`;
+        });
+
+        const blob = new Blob([md], { type: 'text/markdown' });
+        const link = document.createElement('a');
+        link.href = URL.createObjectURL(blob);
+        link.download = `ma-stack-vault-dev-${dateStr}.md`;
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        showToast("Note Markdown exportée !", "📝");
+      });
+
+      // Export / génération de lien de partage (URLSearchParams + Base64)
+      document.getElementById('btn-export-link')?.addEventListener('click', () => {
+        if (stack.length === 0) {
+          showToast("Votre Stack est vide", "⚠️");
+          return;
+        }
+        try {
+          const encoded = btoa(JSON.stringify(stack));
+          const params = new URLSearchParams();
+          params.set('stack', encoded);
+          const shareUrl = `${window.location.origin}${window.location.pathname}?${params.toString()}`;
+          navigator.clipboard.writeText(shareUrl);
+          showToast("Lien de partage copié !", "🔗");
+        } catch {
+          showToast("Erreur lors de la génération du lien", "❌");
+        }
+      });
+
+      // Import d'une Stack partagée via l'URL (?stack=base64)
+      function importStackFromUrl() {
+        const params = new URLSearchParams(window.location.search);
+        const encoded = params.get('stack');
+        if (!encoded) return;
+        try {
+          const decodedIds = JSON.parse(atob(encoded));
+          if (Array.isArray(decodedIds) && decodedIds.length > 0) {
+            stack = [...new Set([...stack, ...decodedIds.map(Number)])];
+            persistStack();
+            updateStackUI();
+            showToast(`Stack partagée importée (${decodedIds.length} outils)`, "🧰");
+            openStackModal();
+          }
+        } catch {
+          // Lien invalide, on ignore silencieusement
+        }
+      }
+
+      // ============ RENDU DES PLAYBOOKS & WORKFLOWS ============
+      const playbookSelector = document.getElementById('playbook-selector');
+      const playbookDetail = document.getElementById('playbook-detail');
+
+      const playbookAccentMap: Record<string, { border: string; text: string; bg: string }> = {
+        purple: { border: 'border-purple-700/50', text: 'text-purple-300', bg: 'bg-purple-900/20' },
+        emerald: { border: 'border-emerald-700/50', text: 'text-emerald-300', bg: 'bg-emerald-900/20' },
+      };
+
+      function renderPlaybookSelector() {
+        if (!playbookSelector) return;
+        playbookSelector.innerHTML = PLAYBOOKS.map((pb: any) => {
+          const accent = playbookAccentMap[pb.accent] || playbookAccentMap.purple;
+          const isActive = pb.id === activePlaybookId;
+          return `
+            <button
+              class="playbook-select-btn flex-1 text-left p-5 rounded-2xl border transition ${isActive ? `${accent.bg} ${accent.border}` : 'bg-slate-900/60 border-slate-800 hover:border-slate-700'}"
+              data-playbook-id="${pb.id}"
+            >
+              <div class="text-2xl mb-2">${pb.icon}</div>
+              <h3 class="font-semibold text-slate-100 mb-1.5">${pb.title}</h3>
+              <p class="text-xs text-slate-400 leading-relaxed">${pb.description}</p>
+              <span class="inline-block mt-3 text-[11px] font-mono ${accent.text}">${pb.steps.length} étapes ↦</span>
+            </button>
+          `;
+        }).join('');
+
+        playbookSelector.querySelectorAll('.playbook-select-btn').forEach(btn => {
+          btn.addEventListener('click', () => {
+            openPlaybook(btn.getAttribute('data-playbook-id') || '');
+          });
+        });
+      }
+
+      function openPlaybook(id: string) {
+        activePlaybookId = id;
+        renderPlaybookSelector();
+
+        const pb: any = PLAYBOOKS.find((p: any) => p.id === id);
+        if (!pb || !playbookDetail) return;
+        const accent = playbookAccentMap[pb.accent] || playbookAccentMap.purple;
+
+        playbookDetail.innerHTML = pb.steps.map((step: any, idx: number) => {
+          const matches = findToolsByKeywords(step.keywords, 3);
+          const toolsHtml = matches.length > 0
+            ? matches.map((t: any) => `
+                <div class="playbook-tool-chip flex items-center justify-between gap-2 bg-slate-950/60 border border-slate-800 hover:border-slate-700 rounded-xl px-3 py-2 transition cursor-pointer" data-id="${t.id}">
+                  <span class="text-xs font-medium text-slate-200 truncate">${t.title}</span>
+                  <button class="playbook-add-stack-btn shrink-0 text-slate-500 hover:text-cyan-400 transition text-xs px-1" data-id="${t.id}" title="Ajouter à ma Stack">🧰</button>
+                </div>
+              `).join('')
+            : `<p class="text-xs text-slate-600 italic">Aucun outil correspondant trouvé dans le catalogue pour cette étape.</p>`;
+
+          return `
+            <div class="bg-slate-900/60 border ${accent.border} rounded-2xl p-5">
+              <h4 class="font-semibold text-slate-100 mb-1.5">${step.title}</h4>
+              <p class="text-xs text-slate-400 mb-4 leading-relaxed">${step.desc}</p>
+              <div class="grid sm:grid-cols-2 gap-2">${toolsHtml}</div>
+            </div>
+          `;
+        }).join('');
+
+        playbookDetail.querySelectorAll('.playbook-tool-chip').forEach(chip => {
+          chip.addEventListener('click', (e: any) => {
+            if (e.target?.closest('.playbook-add-stack-btn')) return;
+            openToolModal(Number(chip.getAttribute('data-id')));
+          });
+        });
+
+        playbookDetail.querySelectorAll('.playbook-add-stack-btn').forEach(btn => {
+          btn.addEventListener('click', (e: any) => {
+            e.stopPropagation();
+            toggleStack(Number(btn.getAttribute('data-id')));
+          });
+        });
+      }
 
       // MODALE SUGGÉRER DIRECT FORMSPREE
       const suggestModal = document.getElementById('suggest-modal');
@@ -751,6 +1275,8 @@ const osintCategories = [...new Set(osintTools.map((t: any) => t.cleanCategory))
       });
 
       updateFavoritesUI();
+      updateStackUI();
+      importStackFromUrl();
       filterAndDisplay();
     </script>
   </body>
