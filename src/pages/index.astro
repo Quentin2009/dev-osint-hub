@@ -2,6 +2,9 @@
 // Importation du CSS Tailwind
 import '../styles/global.css';
 
+// Importation du chatbot
+import Meuhbot from '../components/Meuhbot.astro';
+
 // Importation des données
 import toolsData from '../data/tools.json';
 
@@ -1279,5 +1282,6 @@ const osintCategories = [...new Set(osintTools.map((t: any) => t.cleanCategory))
       importStackFromUrl();
       filterAndDisplay();
     </script>
+    <Meuhbot />
   </body>
 </html>

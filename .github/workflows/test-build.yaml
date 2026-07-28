@@ -16,7 +16,7 @@ jobs:
     # Indique à GitHub d'exécuter toutes les commandes dans le dossier site-web
     defaults:
       run:
-        working-directory: ./site-web
+        working-directory: ./
         
     steps:
       - name: 📥 Récupérer le code
@@ -27,7 +27,7 @@ jobs:
         with:
           node-version: '22'
           cache: 'npm'
-          cache-dependency-path: './site-web/package-lock.json' # Précise où se trouve le fichier de cache
+          cache-dependency-path: './package-lock.json' # Précise où se trouve le fichier de cache
 
       - name: 📦 Installer les dépendances
         run: npm ci
