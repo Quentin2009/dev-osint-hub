@@ -1,0 +1,353 @@
+---
+// ============================================================
+// MeuhBot.astro — Assistant "Meuh-bot" (Dev & OSINT Vault)
+// Composant autonome en Astro + JS Vanilla (aucune dépendance
+// externe côté client). Communique avec /src/pages/api/chat.ts.
+// ============================================================
+---
+
+<!-- BOUTON FLOTTANT + BULLE D'ACCROCHE -->
+<div id="meuhbot-launcher" class="fixed bottom-4 right-4 z-50 flex flex-col items-end gap-2">
+
+  <!-- Bulle de pancarte -->
+  <div
+    id="meuhbot-bubble"
+    class="max-w-[220px] bg-slate-900 border border-emerald-500/40 text-emerald-300 text-xs font-mono rounded-xl rounded-br-sm px-3.5 py-2.5 shadow-lg shadow-emerald-900/30 transition-all duration-300"
+  >
+    <button
+      id="meuhbot-bubble-close"
+      class="absolute -top-2 -right-2 w-5 h-5 flex items-center justify-center rounded-full bg-slate-800 border border-slate-700 text-slate-400 hover:text-white text-[10px]"
+      aria-label="Fermer la bulle"
+    >✕</button>
+    Besoin d'un logiciel ou site pour faire du dev ou de l'OSINT je suis là 🐄
+  </div>
+
+  <!-- Bouton vache -->
+  <button
+    id="meuhbot-toggle"
+    aria-label="Ouvrir l'assistant Meuh-bot"
+    class="relative w-16 h-16 rounded-full bg-gradient-to-br from-emerald-500 to-cyan-600 border-2 border-emerald-400/60 shadow-lg shadow-emerald-500/30 flex items-center justify-center text-3xl hover:scale-105 active:scale-95 transition-transform"
+  >
+    <span class="meuhbot-ring absolute inset-0 rounded-full border-2 border-emerald-400/50"></span>
+    <span class="relative">🐄</span>
+  </button>
+</div>
+
+<!-- OVERLAY (mobile) -->
+<div
+  id="meuhbot-overlay"
+  class="fixed inset-0 bg-slate-950/60 backdrop-blur-sm z-40 hidden opacity-0 transition-opacity duration-200"
+></div>
+
+<!-- PANNEAU LATÉRAL (DRAWER) -->
+<aside
+  id="meuhbot-panel"
+  class="h-screen w-full sm:max-w-[380px] bg-[#090d16] border-l border-emerald-500/20 shadow-2xl shadow-black/60 flex flex-col"
+  aria-hidden="true"
+>
+  <!-- Header -->
+  <header class="flex items-center justify-between gap-2 px-4 py-3.5 border-b border-slate-800 bg-slate-950/80">
+    <div class="flex items-center gap-2.5 min-w-0">
+      <div class="w-9 h-9 shrink-0 rounded-full bg-gradient-to-br from-emerald-500 to-cyan-600 flex items-center justify-center text-lg">
+        🐄
+      </div>
+      <div class="min-w-0">
+        <p class="text-sm font-bold text-emerald-400 font-mono truncate">Meuh-bot</p>
+        <p class="text-[11px] text-slate-500 truncate">Assistant Dev &amp; OSINT Vault</p>
+      </div>
+    </div>
+    <button
+      id="meuhbot-close"
+      class="shrink-0 w-8 h-8 flex items-center justify-center rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition"
+      aria-label="Fermer l'assistant"
+    >✕</button>
+  </header>
+
+  <!-- Zone de chat -->
+  <div id="meuhbot-messages" class="flex-1 overflow-y-auto px-4 py-4 space-y-3">
+    <!-- Les messages sont injectés dynamiquement en JS -->
+  </div>
+
+  <!-- Footer / input -->
+  <footer class="border-t border-slate-800 bg-slate-950/80 p-3">
+    <form id="meuhbot-form" class="flex items-end gap-2">
+      <textarea
+        id="meuhbot-input"
+        rows="1"
+        placeholder="Pose ta question à la vache..."
+        class="flex-1 resize-none max-h-24 bg-slate-900 border border-slate-800 focus:border-emerald-500/60 focus:ring-1 focus:ring-emerald-500/60 rounded-xl px-3 py-2.5 text-sm text-slate-200 placeholder:text-slate-600 outline-none transition"
+      ></textarea>
+      <button
+        id="meuhbot-send"
+        type="submit"
+        aria-label="Envoyer"
+        class="shrink-0 w-10 h-10 rounded-xl bg-emerald-600 hover:bg-emerald-500 disabled:bg-slate-800 disabled:text-slate-600 text-white flex items-center justify-center transition"
+      >
+        <span aria-hidden="true">➤</span>
+      </button>
+    </form>
+    <p class="text-[10px] text-slate-600 font-mono mt-2 text-center">
+      Propulsé par Gemini · réponses basées sur la base d'outils du Vault
+    </p>
+  </footer>
+</aside>
+
+<style>
+  #meuhbot-panel {
+    position: fixed;
+    top: 0;
+    height: 100vh;
+    width: 380px;
+    max-width: 100vw;
+    transition: left 300ms ease-out;
+    z-index: 9999;
+  }
+
+  .meuhbot-ring {
+    animation: meuhbot-pulse 2.2s ease-out infinite;
+  }
+  @keyframes meuhbot-pulse {
+    0% { transform: scale(1); opacity: 0.7; }
+    100% { transform: scale(1.6); opacity: 0; }
+  }
+
+  .meuhbot-dot {
+    animation: meuhbot-blink 1.2s infinite ease-in-out;
+  }
+  .meuhbot-dot:nth-child(2) { animation-delay: 0.2s; }
+  .meuhbot-dot:nth-child(3) { animation-delay: 0.4s; }
+  @keyframes meuhbot-blink {
+    0%, 80%, 100% { opacity: 0.25; transform: translateY(0); }
+    40% { opacity: 1; transform: translateY(-2px); }
+  }
+</style>
+
+<script>
+  // ==========================================================
+  // ÉTAT LOCAL DE LA CONVERSATION (en mémoire, pour l'historique
+  // envoyé à l'API à chaque requête — pas de persistance disque)
+  // ==========================================================
+  type ChatMessage = { role: 'user' | 'bot'; text: string };
+  let messages: ChatMessage[] = [];
+  let isLoading = false;
+
+  const launcher = document.getElementById('meuhbot-launcher');
+  const bubble = document.getElementById('meuhbot-bubble');
+  const bubbleClose = document.getElementById('meuhbot-bubble-close');
+  const toggleBtn = document.getElementById('meuhbot-toggle');
+  const panel = document.getElementById('meuhbot-panel');
+  const overlay = document.getElementById('meuhbot-overlay');
+  const closeBtn = document.getElementById('meuhbot-close');
+  const messagesEl = document.getElementById('meuhbot-messages');
+  const form = document.getElementById('meuhbot-form') as HTMLFormElement | null;
+  const input = document.getElementById('meuhbot-input') as HTMLTextAreaElement | null;
+  const sendBtn = document.getElementById('meuhbot-send') as HTMLButtonElement | null;
+
+  // --------------------------------------------------------
+  // Échappement HTML + mise en forme légère (liens markdown)
+  // --------------------------------------------------------
+  function escapeHtml(str: string): string {
+    const div = document.createElement('div');
+    div.textContent = str;
+    return div.innerHTML;
+  }
+
+  function formatBotText(raw: string): string {
+    let safe = escapeHtml(raw);
+    // Liens markdown [texte](url)
+    safe = safe.replace(
+      /\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g,
+      '<a href="$2" target="_blank" rel="noopener noreferrer" class="text-cyan-400 underline hover:text-cyan-300">$1</a>'
+    );
+    // URLs brutes restantes
+    safe = safe.replace(
+      /(^|[^"'>])(https?:\/\/[^\s<]+)/g,
+      '$1<a href="$2" target="_blank" rel="noopener noreferrer" class="text-cyan-400 underline hover:text-cyan-300">$2</a>'
+    );
+    // Retours à la ligne
+    return safe.replace(/\n/g, '<br/>');
+  }
+
+  // --------------------------------------------------------
+  // Rendu des messages
+  // --------------------------------------------------------
+  function renderMessage(msg: ChatMessage) {
+    if (!messagesEl) return;
+    const wrapper = document.createElement('div');
+    wrapper.className = `flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'} gap-2`;
+
+    if (msg.role === 'bot') {
+      const avatar = document.createElement('div');
+      avatar.className = 'shrink-0 w-7 h-7 rounded-full bg-emerald-900/60 border border-emerald-700/50 flex items-center justify-center text-sm';
+      avatar.textContent = '🐄';
+      wrapper.appendChild(avatar);
+    }
+
+    const bubbleEl = document.createElement('div');
+    bubbleEl.className =
+      msg.role === 'user'
+        ? 'max-w-[78%] bg-cyan-600/20 border border-cyan-500/30 text-cyan-100 rounded-2xl rounded-br-sm px-3.5 py-2.5 text-sm leading-relaxed'
+        : 'max-w-[78%] bg-slate-800/60 border border-emerald-700/30 text-slate-200 rounded-2xl rounded-bl-sm px-3.5 py-2.5 text-sm leading-relaxed';
+    bubbleEl.innerHTML = msg.role === 'bot' ? formatBotText(msg.text) : escapeHtml(msg.text);
+
+    wrapper.appendChild(bubbleEl);
+    messagesEl.appendChild(wrapper);
+    messagesEl.scrollTop = messagesEl.scrollHeight;
+  }
+
+  function addMessage(role: 'user' | 'bot', text: string) {
+    const msg = { role, text };
+    messages.push(msg);
+    renderMessage(msg);
+  }
+
+  // --------------------------------------------------------
+  // Indicateur "La vache réfléchit..."
+  // --------------------------------------------------------
+  let typingEl: HTMLDivElement | null = null;
+
+  function showTyping() {
+    if (!messagesEl) return;
+    typingEl = document.createElement('div');
+    typingEl.className = 'flex justify-start gap-2';
+    typingEl.innerHTML = `
+      <div class="shrink-0 w-7 h-7 rounded-full bg-emerald-900/60 border border-emerald-700/50 flex items-center justify-center text-sm">🐄</div>
+      <div class="bg-slate-800/60 border border-emerald-700/30 text-slate-400 rounded-2xl rounded-bl-sm px-3.5 py-2.5 text-xs font-mono flex items-center gap-1.5">
+        La vache réfléchit
+        <span class="flex gap-0.5">
+          <span class="meuhbot-dot">.</span><span class="meuhbot-dot">.</span><span class="meuhbot-dot">.</span>
+        </span>
+      </div>
+    `;
+    messagesEl.appendChild(typingEl);
+    messagesEl.scrollTop = messagesEl.scrollHeight;
+  }
+
+  function hideTyping() {
+    typingEl?.remove();
+    typingEl = null;
+  }
+
+  // --------------------------------------------------------
+  // Ouverture / fermeture du panneau
+  // --------------------------------------------------------
+ function positionPanelClosed() {
+  if (!panel) return;
+  panel.style.left = window.innerWidth + 'px';
+}
+
+function positionPanelOpen() {
+  if (!panel) return;
+  const width = panel.offsetWidth || 380;
+  panel.style.left = (window.innerWidth - width) + 'px';
+}
+
+// Position initiale : fermé, hors écran
+positionPanelClosed();
+window.addEventListener('resize', () => {
+  if (panel?.classList.contains('meuhbot-open')) positionPanelOpen();
+  else positionPanelClosed();
+});
+
+function openPanel() {
+  panel?.classList.add('meuhbot-open');
+  positionPanelOpen();
+  panel?.setAttribute('aria-hidden', 'false');
+  overlay?.classList.remove('hidden');
+  requestAnimationFrame(() => overlay?.classList.remove('opacity-0'));
+  launcher?.classList.add('hidden');
+  input?.focus();
+
+  if (messages.length === 0) {
+    addMessage('bot', 'Meuh ! 🐄 Que cherches-tu aujourd\'hui ?');
+  }
+}
+
+function closePanel() {
+  panel?.classList.remove('meuhbot-open');
+  positionPanelClosed();
+  panel?.setAttribute('aria-hidden', 'true');
+  overlay?.classList.add('opacity-0');
+  setTimeout(() => overlay?.classList.add('hidden'), 200);
+  launcher?.classList.remove('hidden');
+}
+
+  toggleBtn?.addEventListener('click', openPanel);
+  closeBtn?.addEventListener('click', closePanel);
+  overlay?.addEventListener('click', closePanel);
+  bubbleClose?.addEventListener('click', (e) => {
+    e.stopPropagation();
+    bubble?.classList.add('hidden');
+  });
+
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && panel?.classList.contains('meuhbot-open')) closePanel();
+  });
+
+  // La bulle d'accroche disparaît automatiquement après quelques secondes
+  setTimeout(() => bubble?.classList.add('hidden'), 8000);
+
+  // --------------------------------------------------------
+  // Auto-resize du textarea
+  // --------------------------------------------------------
+  input?.addEventListener('input', () => {
+    if (!input) return;
+    input.style.height = 'auto';
+    input.style.height = `${Math.min(input.scrollHeight, 96)}px`;
+  });
+
+  input?.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      form?.requestSubmit();
+    }
+  });
+
+  // --------------------------------------------------------
+  // Envoi du message à l'API /api/chat
+  // --------------------------------------------------------
+  form?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    if (!input || isLoading) return;
+
+    const text = input.value.trim();
+    if (!text) return;
+
+    addMessage('user', text);
+    input.value = '';
+    input.style.height = 'auto';
+
+    isLoading = true;
+    if (sendBtn) sendBtn.disabled = true;
+    showTyping();
+
+    try {
+      const res = await fetch('/api/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          message: text,
+          // On envoie les 10 derniers échanges pour donner du contexte à Gemini
+          history: messages.slice(-11, -1),
+        }),
+      });
+
+      const data = await res.json();
+      hideTyping();
+
+      if (!res.ok) {
+        addMessage('bot', data?.error || "Meuh... une bouse dans les rouages, réessaie dans un instant. 🐄");
+      } else {
+        addMessage('bot', data.reply || "Meuh... je n'ai pas de réponse à te donner, désolée !");
+      }
+    } catch (err) {
+      hideTyping();
+      addMessage('bot', "Meuh... impossible de joindre l'étable (erreur réseau). Réessaie ! 🐄");
+      console.error('[MeuhBot] Erreur réseau:', err);
+    } finally {
+      isLoading = false;
+      if (sendBtn) sendBtn.disabled = false;
+      input?.focus();
+    }
+  });
+</script>
