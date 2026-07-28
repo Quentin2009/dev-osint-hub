@@ -16,7 +16,7 @@ jobs:
     # Indique à GitHub d'exécuter toutes les commandes dans le dossier site-web
     defaults:
       run:
-        working-directory: ./site-web
+        working-directory: ./
         
     steps:
       - name: 📥 Récupérer le code
