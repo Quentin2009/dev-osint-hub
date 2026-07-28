@@ -12,6 +12,7 @@
     "astro": "astro"
   },
   "dependencies": {
+    "@astrojs/vercel": "^11.0.3",
     "@google/genai": "^2.13.0",
     "@tailwindcss/vite": "^4.3.3",
     "astro": "^7.1.3",
